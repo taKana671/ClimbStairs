@@ -1,6 +1,6 @@
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import PandaNode, NodePath, CardMaker, TransparencyAttrib
-from panda3d.core import Vec3, Point3, LColor
+from panda3d.core import Vec3, Point3, LColor, BitMask32
 
 
 SQUARE_PATH = 'models/square/square'
@@ -17,23 +17,6 @@ class Axis(NodePath):
         axis = base.loader.loadModel(PATH_AXIS)
         axis.setScale(0.5)
         axis.reparentTo(self)
-
-
-class Stone(NodePath):
-
-    def __init__(self):
-        super().__init__(PandaNode('stone'))
-        self.reparentTo(base.render)
-        self.stone = base.loader.loadModel('models/cylinder/cylinder')
-        self.stone.setTexture(
-            base.loader.loadTexture('textures/envir-rock2.jpg'), 1)
-        self.stone.reparentTo(self)
-        self.setScale(0.42)
-        self.pos_z = -0.25
-
-        # self.setPos(Point3(-2.87, 3.28, -0.25))
-        # self.setPos(Point3(-2.87, -2.46, -0.25))
-        # self.setPos(Point3(-2.87 - 0.82, 3.28, -0.25))
 
 
 class Sky(NodePath):
@@ -70,18 +53,24 @@ class Board(NodePath):
             c = i % 8
             r = i // 8
 
-            pos = Point3(
-                (c + self.start_x) * self.edge, (r + self.start_y) * self.edge, self.pos_z)
-            color = self.get_color(r, c)
-            # print(pos)
+            pos = self.grid_center(r, c)
+            color = self.grid_color(r, c)
             square.setPos(pos)
             square.setColor(color)
+            square.find('**/Square').node().setIntoCollideMask(BitMask32.bit(1))
+            square.find('**/Square').node().setTag('square', str(i))
 
-    def get_color(self, r, c):
+    def grid_color(self, r, c):
         if ((r % 2) + c) % 2:
             return LColor(1, 1, 1, 1)
         else:
             return LColor(0.82, 0.82, 0.82, 1)
+
+    def grid_center(self, r, c):
+        x = (c + self.start_x) * self.edge
+        y = (r + self.start_y) * self.edge
+
+        return Point3(x, y, self.pos_z)
 
 
 class Pond(NodePath):
@@ -105,28 +94,7 @@ class Scene:
         self.pond = Pond()
         self.board = Board()
         self.sky = Sky()
-        self.start_point()
-        self.goal_point(5)
-
-    def start_point(self, r=7):
-        self.start_stone = Stone()
-        pos = Point3(
-            self.board.start_x * self.board.edge - self.board.edge,
-            (r + self.board.start_y) * self.board.edge,
-            self.start_stone.pos_z
-        )
-        self.start_stone.setPos(pos)
-
-    def goal_point(self, r):
-        self.goal_stone = Stone()
-        pos = Point3(
-            (8 + self.board.start_x) * self.board.edge,
-            (r + self.board.start_y) * self.board.edge,
-            self.start_stone.pos_z
-        )
-        self.goal_stone.setPos(pos)
-
-
+     
 
 if __name__ == '__main__':
     base = ShowBase()
