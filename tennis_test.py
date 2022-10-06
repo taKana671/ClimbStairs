@@ -13,7 +13,7 @@ from direct.task.Task import Task
 from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
 
 
-from scene import Scene
+from scene_test import Scene
 
 
 # class TennisBall(NodePath):
@@ -68,7 +68,7 @@ class Eve(NodePath):
         world.attachCharacter(self.character)
         self.eve.reparentTo(self.character_np)
         self.eve.setPos(0, 0, -2.5)
-        self.eve.actorInterval('jump', duration=0.5).loop()
+        # self.eve.actorInterval('jump', duration=0.5).loop()
         
         
 
@@ -89,6 +89,8 @@ class Tennis(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
         self.eve = Eve(self.world)
+
+        self.crouching = False
         
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -98,8 +100,35 @@ class Tennis(ShowBase):
 
         taskMgr.add(self.update, 'update')
 
+
+    def move(self):
+        speed = Vec3(0, 0, 0)
+        omega = 0.0
+
+        speed.setY(3.0)
+
+        self.eve.character.setAngularMovement(omega)
+        self.eve.character.setLinearMovement(speed, True)
+
+    def jump(self):
+        self.eve.character.setMaxJumpHeight(5.0)
+        self.eve.character.setJumpSpeed(8.0)
+        self.eve.character.doJump()
+
+   
     def update(self, task):
         dt = globalClock.getDt()
+
+        # result = self.world.contactTest(self.scene.ground.node())
+        result = self.world.contactTest(self.eve.character)
+
+        # for name in set(con.getNode0().getName() for con in result.getContacts()):
+        for name in set(con.getNode1().getName() for con in result.getContacts()):
+            print(name)
+        self.doCrouch()
+        # self.move()
+        # self.jump()
+
         # for entry in self.collision_handler.entries:
         #     print(entry.getIntoNode().name)
         #     print('get into node path', entry.getIntoNodePath())

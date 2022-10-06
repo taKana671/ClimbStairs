@@ -1,109 +1,81 @@
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import PandaNode, NodePath, CardMaker, TransparencyAttrib
-from panda3d.core import Vec3, Point3, LColor, BitMask32
+from panda3d.bullet import BulletSphereShape, BulletBoxShape
+from panda3d.bullet import BulletWorld, BulletDebugNode
+from panda3d.bullet import BulletRigidBodyNode
+from panda3d.core import Vec2, Vec3, Vec4, LVector3
+from panda3d.core import GeomVertexFormat, GeomVertexData
+from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
+from panda3d.core import GeomNode, NodePath, PandaNode
 
 
-SQUARE_PATH = 'models/square/square'
-SKY_PATH = 'models/blue-sky/blue-sky-sphere'
-GROUND_PATH = 'textures/ground.jpg'
-PATH_AXIS = 'models/zup-axis'
-
-
-class Axis(NodePath):
+class Stairs(NodePath):
 
     def __init__(self):
-        super().__init__(PandaNode('axis'))
+        super().__init__(PandaNode('stairs'))
         self.reparentTo(base.render)
-        axis = base.loader.loadModel(PATH_AXIS)
-        axis.setScale(0.5)
-        axis.reparentTo(self)
+
+        cube_node = self.create_cube_node()
+        cube = self.attachNewNode(cube_node)
+        cube.setTwoSided(True)
+
+        cube.setHpr(45, 45, 45)
+        # cube.setScale(0.5, 2, 2)
+
+        new_np = NodePath(PandaNode('stairs2'))
+        cube.copyTo(new_np)
+        new_np.reparentTo(self)
+        new_np.setPos(-2, -2, 0)
+        new_np.setScale(0.2, 0.2, 0.2)
 
 
-class Sky(NodePath):
+    def create_cube_node(self):
+        square_sides = [
+            [Vec3(-1, -1, -1), Vec3(1, -1, -1), Vec3(1, -1, 1), Vec3(-1, -1, 1)],
+            [Vec3(-1, 1, -1), Vec3(1, 1, -1), Vec3(1, 1, 1), Vec3(-1, 1, 1)],
+            [Vec3(-1, 1, 1), Vec3(1, 1, 1), Vec3(1, -1, 1), Vec3(-1, -1, 1)],
+            [Vec3(-1, 1, -1), Vec3(1, 1, -1), Vec3(1, -1, -1), Vec3(-1, -1, -1)],
+            [Vec3(-1, -1, -1), Vec3(-1, 1, -1), Vec3(-1, 1, 1), Vec3(-1, -1, 1)],
+            [Vec3(1, -1, -1), Vec3(1, 1, -1), Vec3(1, 1, 1), Vec3(1, -1, 1)],
+        ]
+        texcoords = [Vec2(0.0, 1.0), Vec2(0.0, 0.0), Vec2(1.0, 0.0), Vec2(1.0, 1.0)]
 
-    def __init__(self):
-        super().__init__(PandaNode('sky'))
-        self.reparentTo(base.render)
-        sky = base.loader.loadModel(SKY_PATH)
-        self.setColor(2, 2, 2, 1)
-        self.setScale(0.02)
-        sky.reparentTo(self)
+        cube_node = GeomNode('square')
 
+        for i, side in enumerate(square_sides):
+            print(i)
+            format_ = GeomVertexFormat.getV3n3cpt2()
+            vdata = GeomVertexData('square', format_, Geom.UHStatic)
 
-class Board(NodePath):
+            vertex = GeomVertexWriter(vdata, 'vertex')
+            normal = GeomVertexWriter(vdata, 'normal')
+            color = GeomVertexWriter(vdata, 'color')
+            texcoord = GeomVertexWriter(vdata, 'texcoord')
+            for pt, coord in zip(side, texcoords):
+                vertex.addData3(pt)
+                normal.addData3(pt.normalize())
+                if i == 2:
+                    color.addData4f(1.0, 0.0, 0.0, 1.0)
+                else:
+                    color.addData4f(0.0, 0.0, 0.0, 0.0)
 
-    def __init__(self):
-        super().__init__(PandaNode('board'))
-        self.reparentTo(base.render)
-        self.edge = 0.82
-        self.start_x = -3.5
-        self.start_y = -3
-        self.pos_z = -1
-        self.size = 8
+                texcoord.addData2f(coord)
 
-        self.create_board()
+            tris = GeomTriangles(Geom.UHStatic)
+            tris.addVertices(0, 1, 3)
+            tris.addVertices(1, 2, 3)
 
-    def create_board(self):
-        for i in range(64):
-            square = base.loader.loadModel(SQUARE_PATH)
-            square.reparentTo(self)
-            square.setScale(0.25)
-            square.setP(-90)
+            square = Geom(vdata)
+            square.addPrimitive(tris)
 
-            c = i % 8
-            r = i // 8
+            cube_node.addGeom(square)
 
-            pos = self.grid_center(r, c)
-            color = self.grid_color(r, c)
-            square.setPos(pos)
-            square.setColor(color)
-            square.find('**/Square').node().setIntoCollideMask(BitMask32.bit(1))
-            square.find('**/Square').node().setTag('square', str(i))
-
-    def grid_color(self, r, c):
-        if ((r % 2) + c) % 2:
-            return LColor(1, 1, 1, 1)
-        else:
-            return LColor(0.82, 0.82, 0.82, 1)
-
-    def grid_center(self, r, c):
-        x = (c + self.start_x) * self.edge
-        y = (r + self.start_y) * self.edge
-
-        return Point3(x, y, self.pos_z)
-
-
-class Pond(NodePath):
-
-    def __init__(self):
-        super().__init__(PandaNode('pond'))
-        self.reparentTo(base.render)
-        pond = base.loader.loadModel('models/cube/cube')
-        pond.reparentTo(self)
-        self.setTransparency(TransparencyAttrib.M_alpha)
-        # self.setH(45)
-        self.setScale(10, 3, 3)
-        self.setColor(LColor(0.25, 0.41, 1, 0.4))
-        self.setPos(Point3(0, 0, -5))
-
-
-class Scene:
-
-    def __init__(self):
-        # axis = Axis()
-        self.pond = Pond()
-        self.board = Board()
-        self.sky = Sky()
-     
+        return cube_node
+        
 
 if __name__ == '__main__':
     base = ShowBase()
     base.disableMouse()
-    base.camera.setPosHpr(0, -12, 8, 0, -35, 0)  # 20, -20, 5
-    # base.camera.setPos(20, -20, 8)  # 20, -20, 5
-    # base.camera.setP(-80)
-    # base.camera.lookAt(0, 0, 0)  # 5, 0, 3
-    # board = Board()
-    scene = Scene()
-    # stone = Stone()
+    base.camera.setPos(0, -10, 0)
+    Stairs()
     base.run()
+
