@@ -1,13 +1,9 @@
-from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletBoxShape, BulletPlaneShape
-from panda3d.bullet import BulletWorld, BulletDebugNode
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.core import Vec2, Vec3, LColor, BitMask32
+from panda3d.core import Vec2, Vec3, LColor, Point3, BitMask32
 from panda3d.core import GeomVertexFormat, GeomVertexData
 from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
 from panda3d.core import GeomNode, NodePath, PandaNode
-
-from direct.showbase.ShowBaseGlobal import globalClock
 
 
 BLACK = LColor(0.0, 0.0, 0.0, 0.0)
@@ -68,72 +64,53 @@ class Stairs(NodePath):
         self.setH(5)
 
         cube_root = NodePath(PandaNode('cubeRoot'))
-        node = make_cube(LColor(0.6, 0.4, 0.8, 1.0))
+        node = make_cube(LColor(0.6, 0.4, 0.68, 1.0))  # Amethyst 0.8
         self.cube = cube_root.attachNewNode(node)
         self.cube.setTwoSided(True)
 
-        self.stair_cnt = 0
+        self.world = world
+        self.stair_cnt = -1
         self.edge = 1
 
         for _ in range(15):
-            self.make_stair(world)
+            self.make_stair()
 
-    def make_stair(self, world):
+    def make_stair(self):
+        self.stair_cnt += 1
         name = f'stairs_{self.stair_cnt}'
         new_cube = NodePath(BulletRigidBodyNode(name))
         self.cube.copyTo(new_cube)
         end, tip = new_cube.getTightBounds()
         new_cube.node().addShape(BulletBoxShape((tip - end) / 2))
+
+        new_cube.node().setRestitution(1)
+
         new_cube.setCollideMask(BitMask32.bit(1))
         new_cube.setScale(0.5, 6, 0.5 * (self.stair_cnt + 1))
         new_cube.setPos(self.edge * self.stair_cnt, 0, self.edge / 2 * (self.stair_cnt + 1))
         new_cube.reparentTo(self)
-        world.attachRigidBody(new_cube.node())
-        self.stair_cnt += 1
+        self.world.attachRigidBody(new_cube.node())
+
+    @property
+    def top_pos(self):
+        np = self.getChild(self.stair_cnt)
+        _, tip = np.getTightBounds()
+        return Point3(self.edge * self.stair_cnt, 0, tip.z)
 
 
 class Floor(NodePath):
 
-    def __init__(self):
+    def __init__(self, world):
         super().__init__(BulletRigidBodyNode('floor'))
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1))
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
+        world.attachRigidBody(self.node())
 
 
-class Test(ShowBase):
+class Scene():
 
-    def __init__(self):
-        super().__init__()
-        self.disableMouse()
-        self.camera.setPos(-10, -20, 15)
-        self.camera.lookAt(2, 0, 8)
-
-        self.world = BulletWorld()
-        self.world.setGravity(Vec3(0, 0, -9.81))
-        self.stairs = Stairs(self.world)
-        floor = Floor()
-        self.world.attachRigidBody(floor.node())
-
-        # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
-        # Bumble Up
-        # *******************************************
-
-        self.taskMgr.add(self.update, 'update')
-
-    def update(self, task):
-        dt = globalClock.getDt()
-        self.world.doPhysics(dt)
-        return task.cont
-
-
-if __name__ == '__main__':
-    # base = ShowBase()
-    # base.disableMouse()
-    # base.camera.setPos(0, -10, 0)
-    test = Test()
-    test.run()
-
+    def __init__(self, world):
+        base.setBackgroundColor(LColor(0.57, 0.43, 0.85, 1.0))  # MediumPurple
+        self.stairs = Stairs(world)
+        self.floor = Floor(world)
