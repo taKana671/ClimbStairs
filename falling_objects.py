@@ -5,7 +5,7 @@ from panda3d.core import NodePath, PandaNode, TransformState
 
 PATH_SPHERE = 'models/sphere/sphere'
 PATH_CARNSX = 'models/carnsx/carnsx'
- 
+
 
 class Sphere(NodePath):
 
@@ -15,14 +15,16 @@ class Sphere(NodePath):
         sphere = base.loader.loadModel(PATH_SPHERE)
         sphere.reparentTo(self)
         end, tip = sphere.getTightBounds()
-        self.node().addShape(BulletSphereShape((tip - end).z / 2))
+        size = tip - end
+        radius = size.z / 2
+        self.node().addShape(BulletSphereShape(radius))
         self.setCollideMask(BitMask32.bit(1))
         self.node().setMass(1)
         self.node().setRestitution(0.7)
         self.setScale(0.1)
         self.setColor(0, 1, 0, 1)  # Lime
 
-        pos = Point3(top_stair.x, top_stair.y, top_stair.z + 5)
+        pos = Point3(top_stair.x, top_stair.y + 4, top_stair.z + 2)
         self.setPos(pos)
 
 

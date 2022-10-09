@@ -4,6 +4,7 @@ from panda3d.core import Vec2, Vec3, LColor, Point3, BitMask32
 from panda3d.core import GeomVertexFormat, GeomVertexData
 from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
 from panda3d.core import GeomNode, NodePath, PandaNode
+from panda3d.core import CardMaker
 
 
 BLACK = LColor(0.0, 0.0, 0.0, 0.0)
@@ -72,8 +73,16 @@ class Stairs(NodePath):
         self.stair_cnt = -1
         self.edge = 1
 
+        self.setup_stairs()
+
+    def setup_stairs(self):
         for _ in range(15):
             self.make_stair()
+
+        np = self.getChild(self.stair_cnt)
+        end, tip = np.getTightBounds()
+        self.left_edge = end.y
+        self.right_edge = tip.y
 
     def make_stair(self):
         self.stair_cnt += 1
@@ -100,12 +109,41 @@ class Stairs(NodePath):
 
 class Floor(NodePath):
 
-    def __init__(self, world):
+    def __init__(self, stairs):
         super().__init__(BulletRigidBodyNode('floor'))
         self.reparentTo(base.render)
+        model = self.create_floor(stairs)
+        model.reparentTo(self)
         self.setCollideMask(BitMask32.bit(1))
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
-        world.attachRigidBody(self.node())
+
+    def create_floor(self, stairs):
+        model = NodePath(PandaNode('floorModel'))
+        card = CardMaker('card')
+        card.setFrame(-1, 1, -1, 1)
+        start, end = int(stairs.left_edge), int(stairs.right_edge)
+
+        for y in range(start + 1, end, 2):
+            for x in range(start - 1, 0, 2):
+                g = model.attachNewNode(card.generate())
+                g.setP(-90)
+                g.setPos(Point3(x, y, 0))
+
+        model.setColor(LColor(0.6, 0.4, 0.68, 1.0))
+        model.flattenStrong()
+        model.setPos(Point3(0, 0, 0))
+        return model
+
+
+class Wall(NodePath):
+
+    def __init__(self, name, normal, y):
+        super().__init__(BulletRigidBodyNode(name))
+        self.reparentTo(base.render)
+        self.setCollideMask(BitMask32.bit(1))
+        self.node().addShape(BulletPlaneShape(normal, 0))
+        self.node().setRestitution(1)
+        self.setY(y)
 
 
 class Scene():
@@ -113,4 +151,10 @@ class Scene():
     def __init__(self, world):
         base.setBackgroundColor(LColor(0.57, 0.43, 0.85, 1.0))  # MediumPurple
         self.stairs = Stairs(world)
-        self.floor = Floor(world)
+        self.floor = Floor(self.stairs)
+        self.left_wall = Wall('left_wall', Vec3.forward(), self.stairs.left_edge)
+        self.right_wall = Wall('right_wall', Vec3.back(), self.stairs.right_edge)
+
+        world.attachRigidBody(self.left_wall.node())
+        world.attachRigidBody(self.right_wall.node())
+        world.attachRigidBody(self.floor.node())
