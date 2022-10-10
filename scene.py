@@ -59,10 +59,9 @@ def make_cube(top_color):
 
 class Stairs(NodePath):
 
-    def __init__(self, world):
+    def __init__(self, scene, world):
         super().__init__(PandaNode('stairs'))
-        self.reparentTo(base.render)
-        self.setH(5)
+        self.reparentTo(scene)
 
         cube_root = NodePath(PandaNode('cubeRoot'))
         node = make_cube(LColor(0.6, 0.4, 0.68, 1.0))  # Amethyst 0.8
@@ -81,8 +80,8 @@ class Stairs(NodePath):
 
         np = self.getChild(self.stair_cnt)
         end, tip = np.getTightBounds()
-        self.left_edge = end.y
-        self.right_edge = tip.y
+        self.left_edge = int(tip.y)
+        self.right_edge = int(end.y)
 
     def make_stair(self):
         self.stair_cnt += 1
@@ -100,8 +99,7 @@ class Stairs(NodePath):
         new_cube.reparentTo(self)
         self.world.attachRigidBody(new_cube.node())
 
-    @property
-    def top_pos(self):
+    def top_center(self):
         np = self.getChild(self.stair_cnt)
         _, tip = np.getTightBounds()
         return Point3(self.edge * self.stair_cnt, 0, tip.z)
@@ -109,10 +107,10 @@ class Stairs(NodePath):
 
 class Floor(NodePath):
 
-    def __init__(self, stairs):
+    def __init__(self, scene):
         super().__init__(BulletRigidBodyNode('floor'))
-        self.reparentTo(base.render)
-        model = self.create_floor(stairs)
+        self.reparentTo(scene)
+        model = self.create_floor(scene.stairs)
         model.reparentTo(self)
         self.setCollideMask(BitMask32.bit(1))
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
@@ -121,7 +119,7 @@ class Floor(NodePath):
         model = NodePath(PandaNode('floorModel'))
         card = CardMaker('card')
         card.setFrame(-1, 1, -1, 1)
-        start, end = int(stairs.left_edge), int(stairs.right_edge)
+        start, end = stairs.right_edge, stairs.left_edge
 
         for y in range(start + 1, end, 2):
             for x in range(start - 1, 0, 2):
@@ -137,24 +135,27 @@ class Floor(NodePath):
 
 class Wall(NodePath):
 
-    def __init__(self, name, normal, y):
+    def __init__(self, scene, name, normal, y):
         super().__init__(BulletRigidBodyNode(name))
-        self.reparentTo(base.render)
+        self.reparentTo(scene)
         self.setCollideMask(BitMask32.bit(1))
         self.node().addShape(BulletPlaneShape(normal, 0))
         self.node().setRestitution(1)
         self.setY(y)
 
 
-class Scene():
+class Scene(NodePath):
 
     def __init__(self, world):
+        super().__init__(PandaNode('scene'))
+        self.reparentTo(base.render)
         base.setBackgroundColor(LColor(0.57, 0.43, 0.85, 1.0))  # MediumPurple
-        self.stairs = Stairs(world)
-        self.floor = Floor(self.stairs)
-        self.left_wall = Wall('left_wall', Vec3.forward(), self.stairs.left_edge)
-        self.right_wall = Wall('right_wall', Vec3.back(), self.stairs.right_edge)
 
+        self.stairs = Stairs(self, world)
+        self.floor = Floor(self)
+        self.left_wall = Wall(self, 'left_wall', Vec3.back(), self.stairs.left_edge)
+        self.right_wall = Wall(self, 'right_wall', Vec3.forward(), self.stairs.right_edge)
+
+        world.attachRigidBody(self.floor.node())
         world.attachRigidBody(self.left_wall.node())
         world.attachRigidBody(self.right_wall.node())
-        world.attachRigidBody(self.floor.node())

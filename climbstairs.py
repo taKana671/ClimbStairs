@@ -1,3 +1,4 @@
+import random
 import sys
 
 from direct.showbase.ShowBase import ShowBase
@@ -11,7 +12,7 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from falling_objects import Sphere, CarNsx
+from obstacles import ShapeObstacles, CarNsx
 
 
 class SnowMan(NodePath):
@@ -57,16 +58,9 @@ class ClimbStairs(ShowBase):
 
         self.character = SnowMan(self.world)
 
-        self.ball = Sphere(self.scene.stairs.top_pos)
-        self.world.attachRigidBody(self.ball.node())
-        self.ball.node().setMass(0)
 
-        
-        # now_pos = ball.getPos()
-        # vec = Vec3(now_pos.x - 2, -6, now_pos.z)
-        # ball.node().setActive(True)
-        # ball.node().applyImpulse(ball.getPos(), vec)
-        # ball.node().applyForce(ball.getPos(), Vec3.right() * 20)
+        self.shape_obstacle = ShapeObstacles(self.scene.stairs, self.world)
+        self.flying_wait_time = 0
 
         # car = CarNsx(self.scene.stairs.top_pos)
         # self.world.attachRigidBody(car.node())
@@ -75,9 +69,9 @@ class ClimbStairs(ShowBase):
         # car.node().applyForce(car.getPos(), Vec3.right() * 20)
 
         # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # *******************************************
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -110,8 +104,8 @@ class ClimbStairs(ShowBase):
         omega = 0.0
 
         if inputState.isSet('jump'):
-            self.character.node().setMaxJumpHeight(5.0)
-            self.character.node().setJumpSpeed(8.0)
+            self.character.node().setMaxJumpHeight(2.0)  # 5.0
+            self.character.node().setJumpSpeed(5.0)      # 8.0
             self.character.node().doJump()
             return
         elif inputState.isSet('left'):
@@ -133,6 +127,28 @@ class ClimbStairs(ShowBase):
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character(dt)
+
+        if task.time > self.flying_wait_time:
+            self.shape_obstacle.start()
+            self.flying_wait_time += 1
+            
+        # result = self.world.contactTest(self.scene.left_wall.node())
+
+        # for con in result.getContacts():
+        #     mp = con.getManifoldPoint()
+        #     print(con.getNode0().getName(), mp.getPositionWorldOnA())
+        #     print(con.getNode1().getName(), mp.getPositionWorldOnB())
+        #     # print(mp.getLocalPointA())
+
+
+        # result = self.world.contactTest(self.ball.node())
+
+        # for con in result.getContacts():
+        #     print(con.getNode0().getName(), con.getNode1().getName())
+        #     mp = con.getManifoldPoint()
+        #     print(mp.getLocalPointA())
+
+
         # print('camera_pos', self.camera.getPos())
         # print('camera_lookat', self.look_x, self.look_y, self.look_z)
         # # print('camera_hpr', self.camera.getHpr())
@@ -143,10 +159,13 @@ class ClimbStairs(ShowBase):
 
     def move_camera(self, direction, move):
         if direction == 'z':
-            vec = Vec3(-1, 3, -2)
-            self.ball.node().setMass(1)
+            # vec = Vec3(-1, 1, 0)
+            vec = Vec3(-1, 1, 1)
+            # self.ball.node().setMass(1)
             self.ball.node().setActive(True)
-            self.ball.node().applyImpulse(vec.normalized() * 20, self.ball.getPos())
+            self.ball.node().applyCentralImpulse(vec.normalized() * 20)
+
+            # self.ball.node().applyImpulse(vec.normalized() * 20, self.ball.getPos())
             # z = self.camera.getZ()
             # if move == 'up':
             #     self.camera.setZ(z + 1)
