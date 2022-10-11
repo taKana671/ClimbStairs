@@ -12,7 +12,7 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from obstacles import ShapeObstacles, CarNsx
+from obstacles import Shapes, Obstacles
 
 
 class SnowMan(NodePath):
@@ -58,8 +58,8 @@ class ClimbStairs(ShowBase):
 
         self.character = SnowMan(self.world)
 
-
-        self.shape_obstacle = ShapeObstacles(self.scene.stairs, self.world)
+        self.shapes = Shapes(self.scene.stairs, self.world)
+        self.obstacles = Obstacles(self.scene.stairs, self.world, self.character)
         self.flying_wait_time = 0
 
         # car = CarNsx(self.scene.stairs.top_pos)
@@ -69,9 +69,9 @@ class ClimbStairs(ShowBase):
         # car.node().applyForce(car.getPos(), Vec3.right() * 20)
 
         # *******************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # *******************************************
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -129,16 +129,19 @@ class ClimbStairs(ShowBase):
         self.control_character(dt)
 
         if task.time > self.flying_wait_time:
-            self.shape_obstacle.start()
-            self.flying_wait_time += 1
+            # self.obstacles.start()
+            self.shapes.start()
+            self.flying_wait_time += 2
             
-        # result = self.world.contactTest(self.scene.left_wall.node())
+        result = self.world.contactTest(self.scene.floor.node())
+        for con in result.getContacts():
+            if (nd := con.getNode0()).getName() != 'snowman':
+                print(nd.getName())
+                self.world.remove(nd)
+                np = nd.getParent(0)
+                # np.removeNode()
 
-        # for con in result.getContacts():
-        #     mp = con.getManifoldPoint()
-        #     print(con.getNode0().getName(), mp.getPositionWorldOnA())
-        #     print(con.getNode1().getName(), mp.getPositionWorldOnB())
-        #     # print(mp.getLocalPointA())
+
 
 
         # result = self.world.contactTest(self.ball.node())

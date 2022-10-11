@@ -31,19 +31,26 @@ class Colors(int, Enum):
         return obj.color
 
 
-class Obstacles(NodePath):
+class FallenObjects(NodePath):
 
-    def __init__(self, stairs, world):
-        super().__init__(PandaNode('obstacles'))
+    def __init__(self, world):
+        super().__init__(PandaNode('fallenObjects'))
         self.reparentTo(base.render)
-        self.stairs = stairs
         self.world = world
 
+    def start(self):
+        obj = self.create()
+        obj.reparentTo(self)
+        self.place(obj)
+        self.world.attachRigidBody(obj.node())
+        self.apply_force(obj)
 
-class ShapeObstacles(Obstacles):
+
+class Shapes(FallenObjects):
 
     def __init__(self, stairs, world):
-        super().__init__(stairs, world)
+        super().__init__(world)
+        self.stairs = stairs
         self.scales = [0.1, 0.2]
         self.shapes = [Sphere, Box]
 
@@ -61,17 +68,38 @@ class ShapeObstacles(Obstacles):
         force = Vec3(-1, y, z).normalized() * 10
         obj.node().applyCentralImpulse(force)
 
-    def start(self):
+    def create(self):
         color = Colors.select()
         scale = random.choice(self.scales)
         mass = scale * 10
         shape_class = random.choice(self.shapes)
         obj = shape_class(color, scale, mass)
-        obj.reparentTo(self)
+        # obj.reparentTo(self)
 
-        self.place(obj)
-        self.world.attachRigidBody(obj.node())
-        self.apply_force(obj)
+        return obj
+
+
+class Obstacles(FallenObjects):
+
+    def __init__(self, stairs, world, character):
+        super().__init__(world)
+        self.stairs = stairs
+        self.character = character
+
+    def place(self, obj):
+        stair_center = self.stairs.top_center()
+        chara_pos = self.character.getPos()
+        z = stair_center.z + obj.size.z / 2
+        pos = Point3(stair_center.x, chara_pos.y, z)
+        obj.setPos(pos)
+
+    def apply_force(self, obj):
+        force = Vec3(-1, 0, -1).normalized() * 5
+        obj.node().applyCentralImpulse(force)
+
+    def create(self):
+        obj = CarNsx()
+        return obj
 
 
 class Sphere(NodePath):
@@ -108,24 +136,25 @@ class Box(NodePath):
 
 class CarNsx(NodePath):
 
-    def __init__(self, top_stair):
+    def __init__(self):
         super().__init__(BulletRigidBodyNode('sphere'))
         self.reparentTo(base.render)
-        sphere = base.loader.loadModel(PATH_CARNSX)
-        sphere.reparentTo(self)
+        car = base.loader.loadModel(PATH_CARNSX)
+        car.reparentTo(self)
+        car.setScale(0.5)
 
-        end, tip = sphere.getTightBounds()
-        size = tip - end
-        half = size / 2
+        end, tip = car.getTightBounds()
+        self.size = tip - end
+        half = self.size / 2
         center = tip - half
 
         self.node().addShape(BulletBoxShape(half), TransformState.makePos(center))
         self.setCollideMask(BitMask32.bit(1))
         self.node().setMass(1)
         self.node().setRestitution(0.7)
-        self.setScale(0.5)
-        # self.setH(-90)
-        self.setR(90)
+        self.setH(-90)
+        # self.setScale(0.5)
+        # self.setR(90)
 
-        pos = Point3(top_stair.x, top_stair.y, top_stair.z + 0.6)
-        self.setPos(pos)
+        # pos = Point3(top_stair.x, top_stair.y, top_stair.z + 0.6)
+        # self.setPos(pos)
