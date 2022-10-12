@@ -46,11 +46,11 @@ class ClimbStairs(ShowBase):
         self.look_x = 5
         self.look_y = 7
         self.look_z = 4
-        self.camera.setPos(-11, -16, 13)
-        # self.camera.setPos(-11, -16, 20)
-        # self.camera.lookAt(self.look_x, self.look_y, 10)
-        self.camera.lookAt(
-            self.look_x, self.look_y, self.look_z)
+        # self.camera.setPos(-11, -16, 13)
+        self.camera.setPos(-11, -16, 20)
+        self.camera.lookAt(self.look_x, self.look_y, 10)
+        # self.camera.lookAt(
+            # self.look_x, self.look_y, self.look_z)
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))

@@ -5,9 +5,10 @@ from panda3d.bullet import BulletRigidBodyNode, BulletSphereShape, BulletBoxShap
 from panda3d.core import Vec2, Vec3, Point3, LColor, BitMask32
 from panda3d.core import NodePath, PandaNode, TransformState
 
+from scene import make_cube
+
 
 PATH_SPHERE = 'models/sphere/sphere'
-PATH_BOX = 'models/cube/cube'
 PATH_CARNSX = 'models/carnsx/carnsx'
 PATH_SOCCERBALL = 'models/soccerball/soccerball'
 
@@ -157,17 +158,19 @@ class Box(NodePath):
         super().__init__(BulletRigidBodyNode(name))
 
         color = Colors.select()
-        scale = random.choice([0.1, 0.2])
+        scale = random.choice([0.5, 1.0])
         mass = scale * 10
 
-        box = base.loader.loadModel(PATH_BOX)
+        box = self.attachNewNode(make_cube(LColor(1, 1, 1, 1)))
+        box.setTwoSided(True)
+
         box.setScale(scale)
         box.reparentTo(self)
         end, tip = box.getTightBounds()
         self.size = tip - end
         self.node().addShape(BulletBoxShape(self.size / 2))
         self.setCollideMask(BitMask32.bit(1))
-        self.node().setMass(mass)
+        self.node().setMass(1)
         self.node().setRestitution(0.7)
         self.setColor(color)
 
