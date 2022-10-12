@@ -9,6 +9,7 @@ from panda3d.core import NodePath, PandaNode, TransformState
 PATH_SPHERE = 'models/sphere/sphere'
 PATH_BOX = 'models/cube/cube'
 PATH_CARNSX = 'models/carnsx/carnsx'
+PATH_SOCCERBALL = 'models/soccerball/soccerball'
 
 
 class Colors(int, Enum):
@@ -31,28 +32,56 @@ class Colors(int, Enum):
         return obj.color
 
 
-class FallenObjects(NodePath):
+class ObstaclesHolder:
 
-    def __init__(self, world):
+    def __init__(self, length):
+        self.data = [None for _ in range(length)]
+
+    def __len__(self):
+        return sum(1 for item in self.data if item is not None)
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def empty_idx(self):
+        for i, item in enumerate(self.data):
+            if not item:
+                return i
+        return None
+
+    def pop(self, key):
+        item = self.data[key]
+        self.data[key] = None
+        return item
+
+
+class Obstacles(NodePath):
+
+    def __init__(self, world, objects_holder):
         super().__init__(PandaNode('fallenObjects'))
         self.reparentTo(base.render)
         self.world = world
+        self.holder = objects_holder
 
     def start(self):
-        obj = self.create()
-        obj.reparentTo(self)
-        self.place(obj)
-        self.world.attachRigidBody(obj.node())
-        self.apply_force(obj)
+        if (idx := self.holder.empty_idx()) is not None:
+            obj = self.create(str(idx))
+            self.holder[idx] = obj
+            obj.reparentTo(self)
+            self.place(obj)
+            self.world.attachRigidBody(obj.node())
+            self.apply_force(obj)
 
 
-class Shapes(FallenObjects):
+class Spheres(Obstacles):
 
-    def __init__(self, stairs, world):
-        super().__init__(world)
+    def __init__(self, stairs, world, objects_holder):
+        super().__init__(world, objects_holder)
         self.stairs = stairs
-        self.scales = [0.1, 0.2]
-        self.shapes = [Sphere, Box]
+        self.spheres = [Sphere, SoccerBall]
 
     def place(self, obj):
         stair_center = self.stairs.top_center()
@@ -68,23 +97,20 @@ class Shapes(FallenObjects):
         force = Vec3(-1, y, z).normalized() * 10
         obj.node().applyCentralImpulse(force)
 
-    def create(self):
-        color = Colors.select()
-        scale = random.choice(self.scales)
-        mass = scale * 10
-        shape_class = random.choice(self.shapes)
-        obj = shape_class(color, scale, mass)
-        # obj.reparentTo(self)
+    def create(self, name):
+        class_ = random.choice(self.spheres)
+        obj = class_(name)
 
         return obj
 
 
-class Obstacles(FallenObjects):
+class Rectangles(Obstacles):
 
-    def __init__(self, stairs, world, character):
-        super().__init__(world)
+    def __init__(self, stairs, world, character, objects_holder):
+        super().__init__(world, objects_holder)
         self.stairs = stairs
         self.character = character
+        self.rectangles = [CarNsx, Box]
 
     def place(self, obj):
         stair_center = self.stairs.top_center()
@@ -97,15 +123,22 @@ class Obstacles(FallenObjects):
         force = Vec3(-1, 0, -1).normalized() * 5
         obj.node().applyCentralImpulse(force)
 
-    def create(self):
-        obj = CarNsx()
+    def create(self, name):
+        class_ = random.choice(self.rectangles)
+        obj = class_(name)
+
         return obj
 
 
 class Sphere(NodePath):
 
-    def __init__(self, color, scale, mass):
-        super().__init__(BulletRigidBodyNode('sphere'))
+    def __init__(self, name):
+        super().__init__(BulletRigidBodyNode(name))
+
+        color = Colors.select()
+        scale = random.choice([0.1, 0.2])
+        mass = scale * 10
+
         sphere = base.loader.loadModel(PATH_SPHERE)
         sphere.setScale(scale)
         sphere.reparentTo(self)
@@ -120,8 +153,13 @@ class Sphere(NodePath):
 
 class Box(NodePath):
 
-    def __init__(self, color, scale, mass):
-        super().__init__(BulletRigidBodyNode('box'))
+    def __init__(self, name):
+        super().__init__(BulletRigidBodyNode(name))
+
+        color = Colors.select()
+        scale = random.choice([0.1, 0.2])
+        mass = scale * 10
+
         box = base.loader.loadModel(PATH_BOX)
         box.setScale(scale)
         box.reparentTo(self)
@@ -136,8 +174,8 @@ class Box(NodePath):
 
 class CarNsx(NodePath):
 
-    def __init__(self):
-        super().__init__(BulletRigidBodyNode('sphere'))
+    def __init__(self, name):
+        super().__init__(BulletRigidBodyNode(name))
         self.reparentTo(base.render)
         car = base.loader.loadModel(PATH_CARNSX)
         car.reparentTo(self)
@@ -153,8 +191,21 @@ class CarNsx(NodePath):
         self.node().setMass(1)
         self.node().setRestitution(0.7)
         self.setH(-90)
-        # self.setScale(0.5)
-        # self.setR(90)
 
-        # pos = Point3(top_stair.x, top_stair.y, top_stair.z + 0.6)
-        # self.setPos(pos)
+
+class SoccerBall(NodePath):
+
+    def __init__(self, name):
+        super().__init__(BulletRigidBodyNode(name))
+        self.reparentTo(base.render)
+        ball = base.loader.loadModel(PATH_SOCCERBALL)
+        ball.reparentTo(self)
+        ball.setScale(1.0)
+
+        end, tip = ball.getTightBounds()
+        self.size = tip - end
+
+        self.node().addShape(BulletSphereShape(self.size.z / 2))
+        self.setCollideMask(BitMask32.bit(1))
+        self.node().setMass(1)
+        self.node().setRestitution(0.7)

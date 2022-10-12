@@ -12,7 +12,7 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from obstacles import Shapes, Obstacles
+from obstacles import Spheres, Rectangles, ObstaclesHolder
 
 
 class SnowMan(NodePath):
@@ -58,9 +58,11 @@ class ClimbStairs(ShowBase):
 
         self.character = SnowMan(self.world)
 
-        self.shapes = Shapes(self.scene.stairs, self.world)
-        self.obstacles = Obstacles(self.scene.stairs, self.world, self.character)
-        self.flying_wait_time = 0
+        self.holder = ObstaclesHolder(100)
+        self.spheres = Spheres(self.scene.stairs, self.world, self.holder)
+        self.rectangles = Rectangles(self.scene.stairs, self.world, self.character, self.holder)
+        self.spheres_wait_time = 0
+        self.rectangles_wait_time = 0
 
         # car = CarNsx(self.scene.stairs.top_pos)
         # self.world.attachRigidBody(car.node())
@@ -128,21 +130,20 @@ class ClimbStairs(ShowBase):
         dt = globalClock.getDt()
         self.control_character(dt)
 
-        if task.time > self.flying_wait_time:
-            # self.obstacles.start()
-            self.shapes.start()
-            self.flying_wait_time += 2
-            
+        if task.time > self.spheres_wait_time:
+            self.spheres.start()
+            self.spheres_wait_time += 2
+
+        if task.time > self.rectangles_wait_time:
+            self.rectangles.start()
+            self.rectangles_wait_time += 5
+
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
-            if (nd := con.getNode0()).getName() != 'snowman':
-                print(nd.getName())
-                self.world.remove(nd)
-                np = nd.getParent(0)
-                # np.removeNode()
-
-
-
+            if (name := con.getNode0().getName()) != 'snowman':
+                np = self.holder.pop(int(name))
+                self.world.remove(np.node())
+                np.removeNode()
 
         # result = self.world.contactTest(self.ball.node())
 
