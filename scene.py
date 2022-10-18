@@ -53,7 +53,7 @@ def make_cube(top_color):
         square = Geom(vdata)
         square.addPrimitive(tris)
         node.addGeom(square)
-
+    print(vdata.getNumRows())
     return node
 
 

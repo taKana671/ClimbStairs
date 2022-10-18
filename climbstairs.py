@@ -5,14 +5,14 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletRigidBodyNode, BulletCharacterControllerNode, BulletDebugNode
-from panda3d.core import Vec2, Vec3, LColor, BitMask32
+from panda3d.core import Vec2, Vec3, LColor, BitMask32, Point3
 from panda3d.core import NodePath, PandaNode
 from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from obstacles import Spheres, Rectangles, ObstaclesHolder
+from obstacles import Spheres, Rectangles, ObstaclesHolder, create_ellipsoid
 
 
 class SnowMan(NodePath):
@@ -46,11 +46,11 @@ class ClimbStairs(ShowBase):
         self.look_x = 5
         self.look_y = 7
         self.look_z = 4
-        # self.camera.setPos(-11, -16, 13)
-        self.camera.setPos(-11, -16, 20)
-        self.camera.lookAt(self.look_x, self.look_y, 10)
-        # self.camera.lookAt(
-            # self.look_x, self.look_y, self.look_z)
+        self.camera.setPos(-11, -16, 13)
+        # self.camera.setPos(-11, -16, 20)
+        # self.camera.lookAt(self.look_x, self.look_y, 10)
+        self.camera.lookAt(
+            self.look_x, self.look_y, self.look_z)
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
@@ -63,6 +63,9 @@ class ClimbStairs(ShowBase):
         self.rectangles = Rectangles(self.scene.stairs, self.world, self.character, self.holder)
         self.spheres_wait_time = 0
         self.rectangles_wait_time = 0
+
+
+        self.np = None
 
         # car = CarNsx(self.scene.stairs.top_pos)
         # self.world.attachRigidBody(car.node())
@@ -131,12 +134,19 @@ class ClimbStairs(ShowBase):
         self.control_character(dt)
 
         if task.time > self.spheres_wait_time:
-            self.spheres.start()
+            # self.spheres.start()
             self.spheres_wait_time += 2
 
         if task.time > self.rectangles_wait_time:
-            self.rectangles.start()
-            self.rectangles_wait_time += 5
+            stair_center = self.scene.stairs.top_center()
+            chara_pos = self.character.getPos()
+            pos = Point3(stair_center.x - 1, chara_pos.y, stair_center.z + 2)
+
+            self.np = create_ellipsoid(self, pos, self.world)
+
+            # self.rectangles.start()
+            self.rectangles_wait_time += 10000
+            # self.rectangles_wait_time += 5
 
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
@@ -144,6 +154,12 @@ class ClimbStairs(ShowBase):
                 np = self.holder.pop(int(name))
                 self.world.remove(np.node())
                 np.removeNode()
+
+        if self.np is not None:
+            result = self.world.contactTest(self.np.node())
+            for con in result.getContacts():
+                print(con.getNode0().getName())
+
 
         # result = self.world.contactTest(self.ball.node())
 

@@ -2,8 +2,11 @@ import random
 from enum import Enum, auto
 
 from panda3d.bullet import BulletRigidBodyNode, BulletSphereShape, BulletBoxShape
+from panda3d.bullet import BulletSoftBodyNode, BulletHelper
+from panda3d.core import GeomVertexFormat
 from panda3d.core import Vec2, Vec3, Point3, LColor, BitMask32
-from panda3d.core import NodePath, PandaNode, TransformState
+from panda3d.core import NodePath, PandaNode, TransformState, GeomNode, GeomVertexFormat
+
 
 from scene import make_cube
 
@@ -71,10 +74,10 @@ class Obstacles(NodePath):
         if (idx := self.holder.empty_idx()) is not None:
             obj = self.create(str(idx))
             self.holder[idx] = obj
-            obj.reparentTo(self)
+            # obj.reparentTo(self)
             self.place(obj)
-            self.world.attachRigidBody(obj.node())
-            self.apply_force(obj)
+            # self.world.attachRigidBody(obj.node())
+            # self.apply_force(obj)
 
 
 class Spheres(Obstacles):
@@ -117,12 +120,17 @@ class Rectangles(Obstacles):
         stair_center = self.stairs.top_center()
         chara_pos = self.character.getPos()
         z = stair_center.z + obj.size.z / 2
-        pos = Point3(stair_center.x, chara_pos.y, z)
-        obj.setPos(pos)
+        # pos = Point3(stair_center.x, chara_pos.y, z)
+        pos = Point3(stair_center.x - 1, chara_pos.y, stair_center.z + 2)
+        
+        self.np = create_ellipsoid(self, pos, self.world)
+        
+        # obj.setPos(pos)
 
     def apply_force(self, obj):
-        force = Vec3(-1, 0, -1).normalized() * 5
-        obj.node().applyCentralImpulse(force)
+        pass
+        # force = Vec3(-1, 0, -1).normalized() * 5
+        # obj.node().applyCentralImpulse(force)
 
     def create(self, name):
         class_ = random.choice(self.rectangles)
@@ -212,3 +220,70 @@ class SoccerBall(NodePath):
         self.setCollideMask(BitMask32.bit(1))
         self.node().setMass(1)
         self.node().setRestitution(0.7)
+
+
+
+def create_ellipsoid(parent, pos, world):
+    info = world.getWorldInfo()
+    info.setAirDensity(0)
+    info.setWaterDensity(0)
+    info.setWaterOffset(0)
+    info.setWaterNormal(Vec3(0, 0, 0))
+
+    center = Point3(0, 0, 0)
+    radius = Vec3(1, 1, 1) * 0.3
+    node = BulletSoftBodyNode.makeEllipsoid(info, center, radius, 128)
+    node.setName('ellipsoid')
+    node.getMaterial(0).setLinearStiffness(0.1)
+    node.getCfg().setDynamicFrictionCoefficient(1)
+    node.getCfg().setDampingCoefficient(0.001)
+    node.getCfg().setPressureCoefficient(1500)
+
+    # node.getCfg().clearAllCollisionFlags()
+    # node.getCfg().setCollisionFlag(BulletSoftBodyConfig.CFClusterSoftSoft, True)
+    # node.getCfg().setCollisionFlag(BulletSoftBodyConfig.CFClusterRigidSoft, True)
+    # node.getCfg().setCollisionFlag(BulletSoftBodyConfig.CFClusterRigidSoft, True)
+
+
+    node.setTotalMass(30, True)
+    node.setPose(True, False)
+
+    np = base.render.attachNewNode(node)
+    np.setPos(pos)
+
+    sphere = base.loader.loadModel(PATH_SPHERE)
+    sphere.setTexture(base.loader.loadTexture('models/dot4.jpg'), 1)
+    sphere.reparentTo(np)
+    sphere.setScale(0.5)
+
+    # import pdb; pdb.set_trace()
+    geom = np \
+        .findAllMatches('**/+GeomNode').getPath(0).node() \
+        .modifyGeom(0)
+    node.linkGeom(geom)
+
+    
+    # end, tip = sphere.getTightBounds()
+    # size = tip - end
+    # np.node().addShape(BulletBoxShape(size / 2))
+    # np.setCollideMask(BitMask32.bit(1))
+    # np.node().setMass(0, 1)
+    # np.node().setMass(1, 1)
+    world.attachSoftBody(np.node())
+   
+    return np
+    
+    
+    
+    # fmt = GeomVertexFormat.getV3n3t2()
+    # geom = BulletHelper.makeGeomFromFaces(node, fmt, True)
+    # node.linkGeom(geom)
+    # nodeV = GeomNode('ellipsoidVisual')
+    # nodeV.addGeom(geom)
+    # npV = np.attachNewNode(nodeV)
+    # # npV.setColor(0, 0, 0, 0)
+
+    # tex = base.loader.loadTexture('models/envir-rock1.jpg')
+    # npV.setTexture(tex)
+
+
