@@ -57,10 +57,11 @@ class GeomNodeCreater:
 
     def get_vdata(self):
         format_ = GeomVertexFormat.getV3n3cpt2()
+        # getV3n3c4
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
 
-        n = sum(len(face) for face in self.faces)
-        vdata.setNumRows(n)
+        # n = sum(len(face) for face in self.faces)
+        # vdata.setNumRows(n)
 
         vertex = GeomVertexWriter(vdata, 'vertex')
         normal = GeomVertexWriter(vdata, 'normal')
@@ -88,32 +89,47 @@ class GeomNodeCreater:
 
         return node
 
-    def get_geom_vertex(self, face):
-        if (length := len(face)) == 3:
-            geom_vertex = (self.cnt, self.cnt + 1, self.cnt + 2)
-            self.cnt += length
-            return geom_vertex
+    def get_geom_vertex(self):
+        i = 0
+        for face in self.faces:
+            if (pts := len(face)) == 3:
+                yield (i, i + 1, i + 2)
+                i += pts
+            elif pts == 4:
+                yield (i, i + 1, i + 3)
+                yield (i + 1, i + 2, i + 3)
+                i += pts
+            elif pts == 5:
+                yield (i, i + 1, i + 3)
+                yield (i + 1, i + 2, i + 3)
+                yield (i+4, i, i + 3)
+                yield (i + 2, i, i + 3)
 
+                i += pts
 
 class RegularTerahedron(GeomNodeCreater):
 
     def __init__(self):
         # data = POLYHEDRONS['tetrahedron']
-        data = POLYHEDRONS['octahedron']
+        data = POLYHEDRONS['dodecahedron']
 
         vertices = data['vertices']
         faces = data['faces']
         self.faces = [[Vec3(*vertices[i]) for i in idxes] for idxes in faces]
+        
+        TEXCOORDS = [
+            (0.0, 1.0),
+            (0.0, 0.0),
+            (1.0, 0.0),
+            (1.0, 1.0),
+            (0.0, 1.0)
+        ]
         self.texcoords = [[Vec2(TEXCOORDS[i]) for i in range(len(face))] for face in self.faces]
-
-        # self.colors = [LColor(0, 0.5, 0, 1), LColor(1, 1, 0, 1), LColor(1, 0, 0, 1), LColor(0, 0, 1, 1)]
-
         color_pattern = data['color_pattern']
         colors = Colors.select(max(color_pattern) + 1)
         self.colors = [colors[i] for i in color_pattern]
 
-        self.cnt = 0
-        self.geom_vertices = [self.get_geom_vertex(face) for face in self.faces]
+        self.geom_vertices = [vertex for vertex in self.get_geom_vertex()]
 
 
 def create_regular_tetrahedron():
