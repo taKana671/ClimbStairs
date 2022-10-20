@@ -85,7 +85,8 @@ class Spheres(Obstacles):
     def __init__(self, stairs, world, objects_holder):
         super().__init__(world, objects_holder)
         self.stairs = stairs
-        self.spheres = [Sphere, SoccerBall]
+        # self.spheres = [Sphere, SoccerBall]
+        self.spheres = [SoccerBall]
 
     def place(self, obj):
         stair_center = self.stairs.top_center()
@@ -212,7 +213,6 @@ class SoccerBall(NodePath):
         ball = base.loader.loadModel(PATH_SOCCERBALL)
         ball.reparentTo(self)
         ball.setScale(1.0)
-
         end, tip = ball.getTightBounds()
         self.size = tip - end
 

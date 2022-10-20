@@ -47,148 +47,77 @@ TEXCOORDS = [
 ]
 
 
-class GeomNodeCreater:
+def make_geom_node(shape):
+    format_ = GeomVertexFormat.getV3n3cpt2()
+    # getV3n3c4
+    vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
 
-    def create_node(self, nd_name):
-        vdata = self.get_vdata()
-        node = self.get_node(nd_name, vdata)
+    vdata.setNumRows(shape.num_rows)
 
-        return node
+    vertex = GeomVertexWriter(vdata, 'vertex')
+    normal = GeomVertexWriter(vdata, 'normal')
+    color = GeomVertexWriter(vdata, 'color')
+    # texcoord = GeomVertexWriter(vdata, 'texcoord')
 
-    def get_vdata(self):
-        format_ = GeomVertexFormat.getV3n3cpt2()
-        # getV3n3c4
-        vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
+    for face, rgba in zip(shape.faces(), shape.colors()):
+        for pt in face:
+            vertex.addData3(pt)
+            normal.addData3(pt.normalize())
+            color.addData4f(rgba)
+            # texcoord.addData2f(coord)
 
-        # n = sum(len(face) for face in self.faces)
-        # vdata.setNumRows(n)
+    node = GeomNode('geomnode')
+    tris = GeomTriangles(Geom.UHStatic)
 
-        vertex = GeomVertexWriter(vdata, 'vertex')
-        normal = GeomVertexWriter(vdata, 'normal')
-        color = GeomVertexWriter(vdata, 'color')
-        texcoord = GeomVertexWriter(vdata, 'texcoord')
-
-        for face, coords, rgba in zip(self.faces, self.texcoords, self.colors):
-            for pt, coord in zip(face, coords):
-                vertex.addData3(pt)
-                normal.addData3(pt.normalize())
-                color.addData4f(rgba)
-                texcoord.addData2f(coord)
-        return vdata
-
-    def get_node(self, name, vdata):
-        node = GeomNode(name)
-        tris = GeomTriangles(Geom.UHStatic)
-
-        for vertices in self.geom_vertices:
-            tris.addVertices(*vertices)
+    for vertices in shape.geom_vertices():
+        tris.addVertices(*vertices)
 
         geom = Geom(vdata)
         geom.addPrimitive(tris)
         node.addGeom(geom)
 
+    return node
+
+
+class PolyhedronsCreater:
+
+    def create(self, name):
+        self.data = POLYHEDRONS['icosidodecahedron']
+        node = make_geom_node(self)
         return node
 
-    def get_geom_vertex(self):
+    def faces(self):
+        vertices = self.data['vertices']
+        faces = self.data['faces']
+
+        for idxes in faces:
+            yield [Vec3(*vertices[i]) for i in idxes]
+
+    def colors(self):
+        color_pattern = self.data['color_pattern']
+        colors = Colors.select(max(color_pattern) + 1)
+        for i in color_pattern:
+            yield colors[i]
+
+    def geom_vertices(self):
         i = 0
-        for face in self.faces:
+        for face in self.data['faces']:
             if (pts := len(face)) == 3:
                 yield (i, i + 1, i + 2)
                 i += pts
             elif pts == 4:
-                yield (i, i + 1, i + 3)
-                yield (i + 1, i + 2, i + 3)
+                for vertex in [(i, i + 1, i + 3), (i + 1, i + 2, i + 3)]:
+                    yield vertex
                 i += pts
             elif pts == 5:
-                yield (i, i + 1, i + 3)
-                yield (i + 1, i + 2, i + 3)
-                yield (i+4, i, i + 3)
-                yield (i + 2, i, i + 3)
-
+                for vertex in [(i, i + 1, i + 3), (i + 1, i + 2, i + 3),
+                               (i + 4, i, i + 3), (i, i + 2, i + 3)]:
+                    yield vertex
                 i += pts
 
-class RegularTerahedron(GeomNodeCreater):
-
-    def __init__(self):
-        # data = POLYHEDRONS['tetrahedron']
-        data = POLYHEDRONS['dodecahedron']
-
-        vertices = data['vertices']
-        faces = data['faces']
-        self.faces = [[Vec3(*vertices[i]) for i in idxes] for idxes in faces]
-        
-        TEXCOORDS = [
-            (0.0, 1.0),
-            (0.0, 0.0),
-            (1.0, 0.0),
-            (1.0, 1.0),
-            (0.0, 1.0)
-        ]
-        self.texcoords = [[Vec2(TEXCOORDS[i]) for i in range(len(face))] for face in self.faces]
-        color_pattern = data['color_pattern']
-        colors = Colors.select(max(color_pattern) + 1)
-        self.colors = [colors[i] for i in color_pattern]
-
-        self.geom_vertices = [vertex for vertex in self.get_geom_vertex()]
-
-
-def create_regular_tetrahedron():
-    a = Vec3(0, 0, 1)
-    b = Vec3(0, 0.9428090416, -0.3333333333)
-    c = Vec3(0.8164965809, -0.4714045208, -0.3333333333)
-    d = Vec3(-0.8164965809, -0.4714045208, -0.3333333333)
-
-    # a = Vec3(1, -1, 1)
-    # b = Vec3(-1, 1, 1)
-    # c = Vec3(-1, -1, -1)
-    # d = Vec3(1, 1, -1)
-
-    sides = [
-        (a, b, c),
-        (a, c, d),
-        (a, b, d),
-        (b, d, c),
-    ]
-
-    TEXCOORDS = [
-        Vec2(0.0, 1.0),
-        Vec2(0.0, 0.0),
-        Vec2(1.0, 0.0)
-    ]
-    colors = [LColor(0, 0.5, 0, 1), LColor(1, 1, 0, 1), LColor(1, 0, 0, 1), LColor(0, 0, 1, 1)]
-
-    node = GeomNode('tetrahedron')
-
-    format_ = GeomVertexFormat.getV3n3cpt2()
-    vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-    vertex = GeomVertexWriter(vdata, 'vertex')
-    normal = GeomVertexWriter(vdata, 'normal')
-    color = GeomVertexWriter(vdata, 'color')
-    texcoord = GeomVertexWriter(vdata, 'texcoord')
-    tris = GeomTriangles(Geom.UHStatic)
-
-    j = 0
-
-    for i, side in enumerate(sides):
-        c = colors[i]
-
-        for pt, coord in zip(side, TEXCOORDS):
-            vertex.addData3(pt)
-            normal.addData3(pt.normalize())
-            color.addData4f(c)
-            texcoord.addData2f(coord)
-
-
-        # tris.addVertices(j, j + 1, j + 2)
-        # j += 3
-        tris.addVertices(0, 1, 2)
-
-    triangle = Geom(vdata)
-    triangle.addPrimitive(tris)
-    node.addGeom(triangle)
-
-    return node
-
+    @property
+    def num_rows(self):
+        return sum(len(face) for face in self.data['faces'])
 
 
 class TestShape(NodePath):
@@ -197,8 +126,8 @@ class TestShape(NodePath):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
         # node = create_regular_tetrahedron()
-        shape = RegularTerahedron()
-        node = shape.create_node('tetrahedron')
+        creater = PolyhedronsCreater()
+        node = creater.create('tetrahedron')
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
         obj.reparentTo(self)

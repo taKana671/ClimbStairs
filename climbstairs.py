@@ -134,18 +134,18 @@ class ClimbStairs(ShowBase):
         self.control_character(dt)
 
         if task.time > self.spheres_wait_time:
-            # self.spheres.start()
+            self.spheres.start()
             self.spheres_wait_time += 2
 
-        if task.time > self.rectangles_wait_time:
-            stair_center = self.scene.stairs.top_center()
-            chara_pos = self.character.getPos()
-            pos = Point3(stair_center.x - 1, chara_pos.y, stair_center.z + 2)
+        # if task.time > self.rectangles_wait_time:
+        #     stair_center = self.scene.stairs.top_center()
+        #     chara_pos = self.character.getPos()
+        #     pos = Point3(stair_center.x - 1, chara_pos.y, stair_center.z + 2)
 
-            self.np = create_ellipsoid(self, pos, self.world)
+        #     self.np = create_ellipsoid(self, pos, self.world)
 
-            # self.rectangles.start()
-            self.rectangles_wait_time += 10000
+        #     # self.rectangles.start()
+        #     self.rectangles_wait_time += 10000
             # self.rectangles_wait_time += 5
 
         result = self.world.contactTest(self.scene.floor.node())

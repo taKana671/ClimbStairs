@@ -7,6 +7,9 @@ from panda3d.core import GeomNode, NodePath, PandaNode
 from panda3d.core import CardMaker
 
 
+from polyhedrons import RegularTerahedron
+
+
 BLACK = LColor(0.0, 0.0, 0.0, 0.0)
 
 SQUARE_SIDES = [
@@ -65,6 +68,12 @@ class Stairs(NodePath):
 
         cube_root = NodePath(PandaNode('cubeRoot'))
         node = make_cube(LColor(0.6, 0.4, 0.68, 1.0))  # Amethyst 0.8
+        
+        # self.creater = RegularTerahedron()
+        # colors = [LColor(0.6, 0.4, 0.68, 1.0), LColor(0.0, 0.0, 0.0, 0.0)] 
+        # self.creater.colors = [colors[i] for i in [1, 1, 0, 1, 1, 0]]
+        # node = self.creater.create_node('cube')
+        
         self.cube = cube_root.attachNewNode(node)
         self.cube.setTwoSided(True)
 
@@ -95,6 +104,7 @@ class Stairs(NodePath):
 
         new_cube.setCollideMask(BitMask32.bit(1))
         new_cube.setScale(0.5, 6, 0.5 * (self.stair_cnt + 1))
+        # new_cube.setScale(1, 12, 1 * (self.stair_cnt + 1))
         new_cube.setPos(self.edge * self.stair_cnt, 0, self.edge / 2 * (self.stair_cnt + 1))
         new_cube.reparentTo(self)
         self.world.attachRigidBody(new_cube.node())
