@@ -44,60 +44,48 @@ TEXCOORDS = [
     (0.0, 0.0),
     (1.0, 0.0),
     (1.0, 1.0),
+    (0.0, 1.0),
 ]
-
-
-def make_geom_node(shape):
-    format_ = GeomVertexFormat.getV3n3cpt2()
-    # getV3n3c4
-    vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-
-    vdata.setNumRows(shape.num_rows)
-
-    vertex = GeomVertexWriter(vdata, 'vertex')
-    normal = GeomVertexWriter(vdata, 'normal')
-    color = GeomVertexWriter(vdata, 'color')
-    # texcoord = GeomVertexWriter(vdata, 'texcoord')
-
-    for face, rgba in zip(shape.faces(), shape.colors()):
-        for pt in face:
-            vertex.addData3(pt)
-            normal.addData3(pt.normalize())
-            color.addData4f(rgba)
-            # texcoord.addData2f(coord)
-
-    node = GeomNode('geomnode')
-    tris = GeomTriangles(Geom.UHStatic)
-
-    for vertices in shape.geom_vertices():
-        tris.addVertices(*vertices)
-
-        geom = Geom(vdata)
-        geom.addPrimitive(tris)
-        node.addGeom(geom)
-
-    return node
 
 
 class PolyhedronsCreater:
 
-    def create(self, name):
-        self.data = POLYHEDRONS['icosidodecahedron']
-        node = make_geom_node(self)
+    def __init__(self):
+        self.idx = 0
+        self.polh_names = tuple(POLYHEDRONS.keys())
+
+    def create_polyhedron(self, rb_node_name):
+        if self.idx >= len(self.polh_names):
+            self.idx = 0
+        polh_name = self.polh_names[self.idx]
+        self.idx += 1
+
+        self.data = POLYHEDRONS[polh_name]
+        self.colors = self.select_colors()
+        geom_node = self.make_geom_node()
+        return Polyhedron(rb_node_name, geom_node)
+
+    def get_geom_node(self, key, colors=None):
+        self.data = POLYHEDRONS[key]
+        self.colors = colors if colors else self.select_colors()
+        node = self.make_geom_node()
         return node
 
     def faces(self):
         vertices = self.data['vertices']
         faces = self.data['faces']
-
-        for idxes in faces:
-            yield [Vec3(*vertices[i]) for i in idxes]
-
-    def colors(self):
         color_pattern = self.data['color_pattern']
-        colors = Colors.select(max(color_pattern) + 1)
-        for i in color_pattern:
-            yield colors[i]
+
+        for idxes, n in zip(faces, color_pattern):
+            yield ((Vec3(*vertices[i]) for i in idxes), self.colors[n])
+
+    def select_colors(self):
+        n = max(self.data['color_pattern'])
+        return Colors.select(n + 1)
+
+    @property
+    def num_rows(self):
+        return sum(len(face) for face in self.data['faces'])
 
     def geom_vertices(self):
         i = 0
@@ -106,18 +94,62 @@ class PolyhedronsCreater:
                 yield (i, i + 1, i + 2)
                 i += pts
             elif pts == 4:
-                for vertex in [(i, i + 1, i + 3), (i + 1, i + 2, i + 3)]:
-                    yield vertex
+                for x, y, z in [(0, 1, 3), (1, 2, 3)]:
+                    yield (i + x, i + y, i + z)
                 i += pts
-            elif pts == 5:
-                for vertex in [(i, i + 1, i + 3), (i + 1, i + 2, i + 3),
-                               (i + 4, i, i + 3), (i, i + 2, i + 3)]:
-                    yield vertex
+            elif pts >= 5:
+                for j in range(2, pts):
+                    if j == 2:
+                        yield (i, i + j - 1, i + j)
+                    else:
+                        yield (i + j - 1, i, i + j)
                 i += pts
 
-    @property
-    def num_rows(self):
-        return sum(len(face) for face in self.data['faces'])
+    def make_geom_node(self):
+        format_ = GeomVertexFormat.getV3n3cpt2()  # getV3n3c4
+        vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
+        vdata.setNumRows(self.num_rows)
+
+        vertex = GeomVertexWriter(vdata, 'vertex')
+        normal = GeomVertexWriter(vdata, 'normal')
+        color = GeomVertexWriter(vdata, 'color')
+        # texcoord = GeomVertexWriter(vdata, 'texcoord')
+
+        for face, rgba in self.faces():
+            for pt in face:
+                vertex.addData3(pt)
+                normal.addData3(pt.normalize())
+                color.addData4f(rgba)
+                # texcoord.addData2f(tex)
+
+        node = GeomNode('geomnode')
+        tris = GeomTriangles(Geom.UHStatic)
+
+        for vertices in self.geom_vertices():
+            tris.addVertices(*vertices)
+
+            geom = Geom(vdata)
+            geom.addPrimitive(tris)
+            node.addGeom(geom)
+
+        return node
+
+
+class Polyhedron(NodePath):
+
+    def __init__(self, name, geom_node):
+        super().__init__(BulletRigidBodyNode(name))
+        np = self.attachNewNode(geom_node)
+        np.setTwoSided(True)
+        np.reparentTo(self)
+        shape = BulletConvexHullShape()
+        shape.addGeom(geom_node.getGeom(0))
+        self.node().addShape(shape)
+        self.node().setMass(1)
+        self.node().setRestitution(0.7)
+        self.setCollideMask(BitMask32.bit(1))
+        self.setScale(0.7)
+        # self.setScale(2)
 
 
 class TestShape(NodePath):
@@ -125,9 +157,8 @@ class TestShape(NodePath):
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-        # node = create_regular_tetrahedron()
         creater = PolyhedronsCreater()
-        node = creater.create('tetrahedron')
+        node = creater.get_geom_node('augmented_truncated_tetrahedron')
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
         obj.reparentTo(self)
@@ -148,9 +179,9 @@ class Game(ShowBase):
         self.world = BulletWorld()
 
         # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # *******************************************
 
         shape = TestShape()
@@ -162,20 +193,6 @@ class Game(ShowBase):
         dt = globalClock.getDt()
         self.world.doPhysics(dt)
         return task.cont
-
-
-def test():
-    root = NodePath(PandaNode('test'))
-    root.reparentTo(base.render)
-    node, _ = create_regular_tetrahedron()
-    obj = root.attachNewNode(node)
-    obj.setTwoSided(True)
-    obj.reparentTo(root)
-    root.setScale(1)
-    # root.setHpr(45, 30, 45)
-    root.setPos(0, 0, 0)
-    root.hprInterval(5, (360, 360, 360)).loop()
-
 
 
 if __name__ == '__main__':

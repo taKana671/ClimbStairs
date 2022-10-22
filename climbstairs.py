@@ -12,7 +12,7 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from obstacles import Spheres, Rectangles, ObstaclesHolder, create_ellipsoid
+from obstacles import Shapes, ObstaclesHolder
 
 
 class SnowMan(NodePath):
@@ -59,19 +59,9 @@ class ClimbStairs(ShowBase):
         self.character = SnowMan(self.world)
 
         self.holder = ObstaclesHolder(100)
-        self.spheres = Spheres(self.scene.stairs, self.world, self.holder)
-        self.rectangles = Rectangles(self.scene.stairs, self.world, self.character, self.holder)
+        self.shapes = Shapes(self.scene.stairs, self.world, self.character, self.holder)
         self.spheres_wait_time = 0
         self.rectangles_wait_time = 0
-
-
-        self.np = None
-
-        # car = CarNsx(self.scene.stairs.top_pos)
-        # self.world.attachRigidBody(car.node())
-
-        # car.node().setActive(True)
-        # car.node().applyForce(car.getPos(), Vec3.right() * 20)
 
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -134,8 +124,8 @@ class ClimbStairs(ShowBase):
         self.control_character(dt)
 
         if task.time > self.spheres_wait_time:
-            self.spheres.start()
-            self.spheres_wait_time += 2
+            self.shapes.start()
+            self.spheres_wait_time += 3
 
         # if task.time > self.rectangles_wait_time:
         #     stair_center = self.scene.stairs.top_center()
@@ -154,12 +144,6 @@ class ClimbStairs(ShowBase):
                 np = self.holder.pop(int(name))
                 self.world.remove(np.node())
                 np.removeNode()
-
-        if self.np is not None:
-            result = self.world.contactTest(self.np.node())
-            for con in result.getContacts():
-                print(con.getNode0().getName())
-
 
         # result = self.world.contactTest(self.ball.node())
 

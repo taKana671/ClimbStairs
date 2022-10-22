@@ -6,10 +6,6 @@ from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
 from panda3d.core import GeomNode, NodePath, PandaNode
 from panda3d.core import CardMaker
 
-
-from polyhedrons import RegularTerahedron
-
-
 BLACK = LColor(0.0, 0.0, 0.0, 0.0)
 
 SQUARE_SIDES = [
@@ -56,7 +52,6 @@ def make_cube(top_color):
         square = Geom(vdata)
         square.addPrimitive(tris)
         node.addGeom(square)
-    print(vdata.getNumRows())
     return node
 
 
