@@ -6,53 +6,11 @@ from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
 from panda3d.core import GeomNode, NodePath, PandaNode
 from panda3d.core import CardMaker
 
+from polyhedrons import PolyhedronsCreater
+
+
 BLACK = LColor(0.0, 0.0, 0.0, 0.0)
-
-SQUARE_SIDES = [
-    [Vec3(-1, -1, -1), Vec3(1, -1, -1), Vec3(1, -1, 1), Vec3(-1, -1, 1)],
-    [Vec3(-1, 1, -1), Vec3(1, 1, -1), Vec3(1, 1, 1), Vec3(-1, 1, 1)],
-    [Vec3(-1, 1, 1), Vec3(1, 1, 1), Vec3(1, -1, 1), Vec3(-1, -1, 1)],
-    [Vec3(-1, 1, -1), Vec3(1, 1, -1), Vec3(1, -1, -1), Vec3(-1, -1, -1)],
-    [Vec3(-1, -1, -1), Vec3(-1, 1, -1), Vec3(-1, 1, 1), Vec3(-1, -1, 1)],
-    [Vec3(1, -1, -1), Vec3(1, 1, -1), Vec3(1, 1, 1), Vec3(1, -1, 1)],
-]
-
-TEXCOORDS = [
-    Vec2(0.0, 1.0),
-    Vec2(0.0, 0.0),
-    Vec2(1.0, 0.0),
-    Vec2(1.0, 1.0)
-]
-
-
-def make_cube(top_color):
-    node = GeomNode('cube')
-
-    for i, side in enumerate(SQUARE_SIDES):
-        format_ = GeomVertexFormat.getV3n3cpt2()
-        vdata = GeomVertexData('square', format_, Geom.UHStatic)
-        vertex = GeomVertexWriter(vdata, 'vertex')
-        normal = GeomVertexWriter(vdata, 'normal')
-        color = GeomVertexWriter(vdata, 'color')
-        texcoord = GeomVertexWriter(vdata, 'texcoord')
-
-        for pt, coord in zip(side, TEXCOORDS):
-            vertex.addData3(pt)
-            normal.addData3(pt.normalize())
-            if i == 2:
-                color.addData4f(top_color)
-            else:
-                color.addData4f(BLACK)
-            texcoord.addData2f(coord)
-
-        tris = GeomTriangles(Geom.UHStatic)
-        tris.addVertices(0, 1, 3)
-        tris.addVertices(1, 2, 3)
-
-        square = Geom(vdata)
-        square.addPrimitive(tris)
-        node.addGeom(square)
-    return node
+AMETHYST = LColor(0.6, 0.4, 0.68, 1.0)
 
 
 class Stairs(NodePath):
@@ -60,15 +18,10 @@ class Stairs(NodePath):
     def __init__(self, scene, world):
         super().__init__(PandaNode('stairs'))
         self.reparentTo(scene)
-
         cube_root = NodePath(PandaNode('cubeRoot'))
-        node = make_cube(LColor(0.6, 0.4, 0.68, 1.0))  # Amethyst 0.8
-        
-        # self.creater = RegularTerahedron()
-        # colors = [LColor(0.6, 0.4, 0.68, 1.0), LColor(0.0, 0.0, 0.0, 0.0)] 
-        # self.creater.colors = [colors[i] for i in [1, 1, 0, 1, 1, 0]]
-        # node = self.creater.create_node('cube')
-        
+
+        creater = PolyhedronsCreater()
+        node = creater.get_geom_node('cube', [AMETHYST, BLACK])
         self.cube = cube_root.attachNewNode(node)
         self.cube.setTwoSided(True)
 
@@ -94,12 +47,9 @@ class Stairs(NodePath):
         self.cube.copyTo(new_cube)
         end, tip = new_cube.getTightBounds()
         new_cube.node().addShape(BulletBoxShape((tip - end) / 2))
-
         new_cube.node().setRestitution(1)
-
         new_cube.setCollideMask(BitMask32.bit(1))
-        new_cube.setScale(0.5, 6, 0.5 * (self.stair_cnt + 1))
-        # new_cube.setScale(1, 12, 1 * (self.stair_cnt + 1))
+        new_cube.setScale(1, 12, 1 * (self.stair_cnt + 1))
         new_cube.setPos(self.edge * self.stair_cnt, 0, self.edge / 2 * (self.stair_cnt + 1))
         new_cube.reparentTo(self)
         self.world.attachRigidBody(new_cube.node())

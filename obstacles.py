@@ -7,8 +7,6 @@ from panda3d.core import GeomVertexFormat
 from panda3d.core import Vec2, Vec3, Point3, LColor, BitMask32
 from panda3d.core import NodePath, PandaNode, TransformState, GeomNode, GeomVertexFormat
 
-
-from scene import make_cube
 from polyhedrons import PolyhedronsCreater
 
 

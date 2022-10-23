@@ -1,3 +1,4 @@
+import math
 import random
 from enum import Enum
 
@@ -128,9 +129,72 @@ class PolyhedronsCreater:
         for vertices in self.geom_vertices():
             tris.addVertices(*vertices)
 
-            geom = Geom(vdata)
-            geom.addPrimitive(tris)
-            node.addGeom(geom)
+        geom = Geom(vdata)
+        geom.addPrimitive(tris)
+        node.addGeom(geom)
+
+        return node
+
+
+class ConesCreater:
+
+    def __init__(self, length=2, cycle=12, radius=0.5):
+        self.cone_length = length
+        self.cycle = cycle
+        self.cone_radius = radius
+        self.faces = [face for face in self.get_faces()]
+
+    def get_faces(self):
+        point = Vec3(0, 0, self.cone_length)
+
+        bottom = []
+        for i in range(self.cycle):
+            theta = i * (2 * math.pi / self.cycle)
+            x = self.cone_radius * math.sin(theta)
+            y = self.cone_radius * math.cos(theta)
+            bottom.append(Vec3(x, y, 0))
+
+        yield bottom
+
+        for i in range(0, len(bottom)):
+            if i == len(bottom) - 1:
+                yield (point, bottom[0], bottom[i])
+            else:
+                yield (point, bottom[i], bottom[i + 1])
+
+    def geom_vertices(self):
+        i = 0
+        for face in self.faces:
+            if (pts := len(face)) == 3:
+                yield (i, i + 1, i + 2)
+                i += pts
+            else:
+                for j in range(2, pts):
+                    if j == 2:
+                        yield (i, i + j - 1, i + j)
+                    else:
+                        yield (i + j - 1, i, i + j)
+                i += pts
+
+    def make_geom_node(self):
+        format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
+        vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
+        vdata.setNumRows(self.cycle + 1)
+        vertex = GeomVertexWriter(vdata, 'vertex')
+        # color = GeomVertexWriter(vdata, 'color')
+
+        for face in self.faces:
+            for pt in face:
+                vertex.addData3(pt)
+
+        tris = GeomTriangles(Geom.UHStatic)
+        for vertices in self.geom_vertices():
+            tris.addVertices(*vertices)
+
+        node = GeomNode('geomnode')
+        geom = Geom(vdata)
+        geom.addPrimitive(tris)
+        node.addGeom(geom)
 
         return node
 
@@ -157,8 +221,12 @@ class TestShape(NodePath):
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-        creater = PolyhedronsCreater()
-        node = creater.get_geom_node('augmented_truncated_tetrahedron')
+        # creater = PolyhedronsCreater()
+        # node = creater.get_geom_node('augmented_truncated_tetrahedron')
+
+        creater = ConesCreater()
+        node = creater.make_geom_node()
+
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
         obj.reparentTo(self)
@@ -167,6 +235,7 @@ class TestShape(NodePath):
         self.node().addShape(shape)
         self.setCollideMask(BitMask32(1))
         self.setScale(2)
+        # self.setColor(Colors.RED.value)
 
 
 class Game(ShowBase):
@@ -175,13 +244,13 @@ class Game(ShowBase):
         super().__init__()
         self.disableMouse()
         self.camera.setPos(10, 10, 10)  # 20, -20, 5
-        self.camera.lookAt(0, 0, 0) 
+        self.camera.lookAt(0, 0, 0)
         self.world = BulletWorld()
 
         # *******************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # *******************************************
 
         shape = TestShape()
