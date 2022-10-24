@@ -7,7 +7,7 @@ from panda3d.core import GeomVertexFormat
 from panda3d.core import Vec2, Vec3, Point3, LColor, BitMask32
 from panda3d.core import NodePath, PandaNode, TransformState, GeomNode, GeomVertexFormat
 
-from polyhedrons import PolyhedronsCreater
+from polyhedrons import PolyhedronsCreater, ConesCreater
 
 
 class Colors(int, Enum):
@@ -83,7 +83,7 @@ class Shapes(Obstacles):
         self.creater = PolyhedronsCreater()
 
     def place(self, obj):
-        stair_center = self.stairs.top_center()
+        stair_center = self.stairs.center(self.stairs.top_stair)
         chara_pos = self.character.getPos()
         end, tip = obj.getTightBounds()
         size = tip - end
@@ -99,3 +99,27 @@ class Shapes(Obstacles):
         obj = self.creater.create_polyhedron(name)
 
         return obj
+
+
+class Cones(Obstacles):
+
+    def __init__(self, stairs, world, character, objects_holder):
+        super().__init__(world, objects_holder)
+        self.stairs = stairs
+        self.character = character
+        self.creater = ConesCreater()
+        self.cone = self.creater.create_cone()
+        self.world.attachRigidBody(self.cone.node())
+        self.cone.setScale(0.5)
+        self.cone.setR(-90)
+
+    def start(self):
+        if pos := self.stairs.center(self.character.stair + 1):
+            self.cone.setPos(Point3(pos.x + 2, pos.y, pos.z + 0.5))
+            # self.cone.setPos(pos)
+            self.cone.reparentTo(self)
+            self.cone.posInterval(1, Point3(pos.x + 0.5, pos.y, pos.z + 0.5)).start()
+            
+
+
+    

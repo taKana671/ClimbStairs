@@ -176,6 +176,10 @@ class ConesCreater:
                         yield (i + j - 1, i, i + j)
                 i += pts
 
+    def create_cone(self):
+        geom_node = self.make_geom_node()
+        return Cone(geom_node)
+
     def make_geom_node(self):
         format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
@@ -216,6 +220,22 @@ class Polyhedron(NodePath):
         # self.setScale(2)
 
 
+class Cone(NodePath):
+
+    def __init__(self, geom_node):
+        super().__init__(BulletRigidBodyNode('cone'))
+        np = self.attachNewNode(geom_node)
+        np.setTwoSided(True)
+        np.reparentTo(self)
+        shape = BulletConvexHullShape()
+        shape.addGeom(geom_node.getGeom(0))
+        self.node().addShape(shape)
+        # self.node().setMass(1)
+        self.node().setRestitution(0.7)
+        self.setCollideMask(BitMask32.bit(2))
+        self.setColor(LColor(0.75, 0.75, 0.75, 1))
+
+
 class TestShape(NodePath):
 
     def __init__(self):
@@ -234,8 +254,8 @@ class TestShape(NodePath):
         shape.addGeom(node.getGeom(0))
         self.node().addShape(shape)
         self.setCollideMask(BitMask32(1))
-        self.setScale(2)
-        # self.setColor(Colors.RED.value)
+        self.setScale(1)
+        self.setColor(Colors.RED.value)
 
 
 class Game(ShowBase):
@@ -254,8 +274,9 @@ class Game(ShowBase):
         # *******************************************
 
         shape = TestShape()
+    
         self.world.attachRigidBody(shape.node())
-        shape.hprInterval(5, (360, 360, 360)).loop()
+        # shape.hprInterval(5, (360, 360, 360)).loop()
         self.taskMgr.add(self.update, 'update')
 
     def update(self, task):

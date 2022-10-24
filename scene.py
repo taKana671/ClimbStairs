@@ -1,9 +1,7 @@
 from panda3d.bullet import BulletBoxShape, BulletPlaneShape
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.core import Vec2, Vec3, LColor, Point3, BitMask32
-from panda3d.core import GeomVertexFormat, GeomVertexData
-from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
-from panda3d.core import GeomNode, NodePath, PandaNode
+from panda3d.core import Vec3, LColor, Point3, BitMask32
+from panda3d.core import NodePath, PandaNode
 from panda3d.core import CardMaker
 
 from polyhedrons import PolyhedronsCreater
@@ -21,43 +19,54 @@ class Stairs(NodePath):
         cube_root = NodePath(PandaNode('cubeRoot'))
 
         creater = PolyhedronsCreater()
-        node = creater.get_geom_node('cube', [AMETHYST, BLACK])
-        self.cube = cube_root.attachNewNode(node)
-        self.cube.setTwoSided(True)
+        geom_node = creater.get_geom_node('cube', [AMETHYST, BLACK])
+        self.np_cube = cube_root.attachNewNode(geom_node)
+        self.np_cube.setTwoSided(True)
 
         self.world = world
-        self.stair_cnt = -1
+        self.top_stair = -1
         self.edge = 1
-
+        self.stairs = []
         self.setup_stairs()
+
+        stair = self.stairs[self.top_stair]
+        end, tip = stair.getTightBounds()
+        self.left_end = int(tip.y)
+        self.right_end = int(end.y)
 
     def setup_stairs(self):
         for _ in range(15):
-            self.make_stair()
+            self.increase()
 
-        np = self.getChild(self.stair_cnt)
-        end, tip = np.getTightBounds()
-        self.left_edge = int(tip.y)
-        self.right_edge = int(end.y)
+    def increase(self):
+        self.top_stair += 1
+        name = f'stairs_{self.top_stair}'
+        scale = Vec3(1, 12, self.top_stair + 1)
+        pos = Point3(self.edge * self.top_stair, 0, self.edge / 2 * (self.top_stair + 1))
+        stair = Cube(name, pos, scale, self.np_cube)
+        stair.reparentTo(self)
+        self.world.attachRigidBody(stair.node())
+        self.stairs.append(stair)
 
-    def make_stair(self):
-        self.stair_cnt += 1
-        name = f'stairs_{self.stair_cnt}'
-        new_cube = NodePath(BulletRigidBodyNode(name))
-        self.cube.copyTo(new_cube)
-        end, tip = new_cube.getTightBounds()
-        new_cube.node().addShape(BulletBoxShape((tip - end) / 2))
-        new_cube.node().setRestitution(1)
-        new_cube.setCollideMask(BitMask32.bit(1))
-        new_cube.setScale(1, 12, 1 * (self.stair_cnt + 1))
-        new_cube.setPos(self.edge * self.stair_cnt, 0, self.edge / 2 * (self.stair_cnt + 1))
-        new_cube.reparentTo(self)
-        self.world.attachRigidBody(new_cube.node())
+    def center(self, n):
+        if n < len(self.stairs):
+            np = self.stairs[n]
+            _, tip = np.getTightBounds()
+            return Point3(self.edge * n, 0, tip.z)
+        return None
 
-    def top_center(self):
-        np = self.getChild(self.stair_cnt)
-        _, tip = np.getTightBounds()
-        return Point3(self.edge * self.stair_cnt, 0, tip.z)
+
+class Cube(NodePath):
+
+    def __init__(self, name, pos, scale, np_cube):
+        super().__init__(BulletRigidBodyNode(name))
+        self.cube = np_cube.copyTo(self)
+        end, tip = self.cube.getTightBounds()
+        self.node().addShape(BulletBoxShape((tip - end) / 2))
+        self.node().setRestitution(1)
+        self.setCollideMask(BitMask32.bit(1))
+        self.setScale(scale)
+        self.setPos(pos)
 
 
 class Floor(NodePath):
@@ -74,7 +83,7 @@ class Floor(NodePath):
         model = NodePath(PandaNode('floorModel'))
         card = CardMaker('card')
         card.setFrame(-1, 1, -1, 1)
-        start, end = stairs.right_edge, stairs.left_edge
+        start, end = stairs.right_end, stairs.left_end
 
         for y in range(start + 1, end, 2):
             for x in range(start - 1, 0, 2):
@@ -108,8 +117,8 @@ class Scene(NodePath):
 
         self.stairs = Stairs(self, world)
         self.floor = Floor(self)
-        self.left_wall = Wall(self, 'left_wall', Vec3.back(), self.stairs.left_edge)
-        self.right_wall = Wall(self, 'right_wall', Vec3.forward(), self.stairs.right_edge)
+        self.left_wall = Wall(self, 'left_wall', Vec3.back(), self.stairs.left_end)
+        self.right_wall = Wall(self, 'right_wall', Vec3.forward(), self.stairs.right_end)
 
         world.attachRigidBody(self.floor.node())
         world.attachRigidBody(self.left_wall.node())

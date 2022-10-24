@@ -6,13 +6,14 @@ from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletRigidBodyNode, BulletCharacterControllerNode, BulletDebugNode
 from panda3d.core import Vec2, Vec3, LColor, BitMask32, Point3
-from panda3d.core import NodePath, PandaNode
+from panda3d.core import NodePath, PandaNode, TransformState
+from panda3d.core import AmbientLight, DirectionalLight
 from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from obstacles import Shapes, ObstaclesHolder
+from obstacles import Shapes, ObstaclesHolder, Cones
 
 
 class SnowMan(NodePath):
@@ -31,10 +32,20 @@ class SnowMan(NodePath):
         self.setPos(-1, 2, 0)
         self.setH(90)
 
+        # self.setScale(0.3)
         model.reparentTo(self)
         model.setPos(0, 0, -1)
+        self.stair = -1
 
         world.attachCharacter(self.node())
+
+    def which_stair(self, names):
+        '''names: list of node name
+        '''
+        if names:
+            now_stair = min(int(name.split('_')[1]) for name in names)
+            if now_stair != self.stair:
+                self.stair = now_stair
 
 
 class ClimbStairs(ShowBase):
@@ -52,6 +63,8 @@ class ClimbStairs(ShowBase):
         self.camera.lookAt(
             self.look_x, self.look_y, self.look_z)
 
+        # self.setup_lights()
+
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
@@ -60,8 +73,10 @@ class ClimbStairs(ShowBase):
 
         self.holder = ObstaclesHolder(100)
         self.shapes = Shapes(self.scene.stairs, self.world, self.character, self.holder)
+        self.cones = Cones(self.scene.stairs, self.world, self.character, self.holder)
+        
         self.spheres_wait_time = 0
-        self.rectangles_wait_time = 0
+        self.cones_wait_time = 0
 
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -93,6 +108,21 @@ class ClimbStairs(ShowBase):
 
         self.accept('escape', sys.exit)
         self.taskMgr.add(self.update, 'update')
+
+    def setup_lights(self):
+        ambient_light = self.render.attachNewNode(AmbientLight('ambientLight'))
+        ambient_light.node().setColor(LColor(1, 1, 1, 1))
+        self.render.setLight(ambient_light)
+        directional_light = self.render.attachNewNode(DirectionalLight('directionalLight'))
+        directional_light.node().getLens().setFilmSize(200, 200)
+        directional_light.node().getLens().setNearFar(1, 100)
+        directional_light.node().setColor(LColor(1, 1, 1, 1))
+        directional_light.setPos(Point3(0, 0, 50))
+        # directional_light.node().setDirection(Vec3(0, 45, -45))
+        # directional_light.setPosHpr(Point3(0, 0, 30), Vec3(-30, -45, 0))
+        directional_light.node().setShadowCaster(True)
+        self.render.setShaderAuto()
+        self.render.setLight(directional_light)
 
     def control_character(self, dt):
         speed = Vec3(0, 0, 0)
@@ -127,23 +157,28 @@ class ClimbStairs(ShowBase):
             self.shapes.start()
             self.spheres_wait_time += 3
 
-        # if task.time > self.rectangles_wait_time:
-        #     stair_center = self.scene.stairs.top_center()
-        #     chara_pos = self.character.getPos()
-        #     pos = Point3(stair_center.x - 1, chara_pos.y, stair_center.z + 2)
+        if self.character.stair >= 1:
+            if task.time > self.cones_wait_time:
+                self.cones.start()
+                self.cones_wait_time += 10000
+        
+        
+        
+        # result = self.world.contactTest(self.scene.floor.node())
+        # for con in result.getContacts():
+        #     if (name := con.getNode0().getName()) != 'snowman':
+        #         np = self.holder.pop(int(name))
+        #         self.world.remove(np.node())
+        #         np.removeNode()
 
-        #     self.np = create_ellipsoid(self, pos, self.world)
-
-        #     # self.rectangles.start()
-        #     self.rectangles_wait_time += 10000
-            # self.rectangles_wait_time += 5
-
-        result = self.world.contactTest(self.scene.floor.node())
+        stairs = []
+        result = self.world.contactTest(self.character.node())
         for con in result.getContacts():
-            if (name := con.getNode0().getName()) != 'snowman':
-                np = self.holder.pop(int(name))
-                self.world.remove(np.node())
-                np.removeNode()
+            if (name := con.getNode1().getName()).startswith('stairs'):
+                stairs.append(name)
+        self.character.which_stair(stairs)
+
+
 
         # result = self.world.contactTest(self.ball.node())
 
