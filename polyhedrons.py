@@ -241,11 +241,11 @@ class TestShape(NodePath):
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-        # creater = PolyhedronsCreater()
-        # node = creater.get_geom_node('augmented_truncated_tetrahedron')
+        creater = PolyhedronsCreater()
+        node = creater.get_geom_node('truncated_tetrahedron')
 
-        creater = ConesCreater()
-        node = creater.make_geom_node()
+        # creater = ConesCreater()
+        # node = creater.make_geom_node()
 
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
@@ -255,7 +255,7 @@ class TestShape(NodePath):
         self.node().addShape(shape)
         self.setCollideMask(BitMask32(1))
         self.setScale(1)
-        self.setColor(Colors.RED.value)
+        # self.setColor(Colors.RED.value)
 
 
 class Game(ShowBase):
@@ -276,7 +276,7 @@ class Game(ShowBase):
         shape = TestShape()
     
         self.world.attachRigidBody(shape.node())
-        # shape.hprInterval(5, (360, 360, 360)).loop()
+        shape.hprInterval(5, (360, 360, 360)).loop()
         self.taskMgr.add(self.update, 'update')
 
     def update(self, task):

@@ -7,6 +7,8 @@ from panda3d.core import GeomVertexFormat
 from panda3d.core import Vec2, Vec3, Point3, LColor, BitMask32
 from panda3d.core import NodePath, PandaNode, TransformState, GeomNode, GeomVertexFormat
 
+from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
+
 from polyhedrons import PolyhedronsCreater, ConesCreater
 
 
@@ -112,13 +114,16 @@ class Cones(Obstacles):
         self.world.attachRigidBody(self.cone.node())
         self.cone.setScale(0.5)
         self.cone.setR(-90)
+        self.trap_seq = Parallel()
 
-    def start(self):
-        if pos := self.stairs.center(self.character.stair + 1):
+    def set_trap(self, n):
+        if n < self.stairs.top_stair:
+            pos = self.stairs.center(n)
             self.cone.setPos(Point3(pos.x + 2, pos.y, pos.z + 0.5))
             # self.cone.setPos(pos)
             self.cone.reparentTo(self)
-            self.cone.posInterval(1, Point3(pos.x + 0.5, pos.y, pos.z + 0.5)).start()
+            self.trap_seq.append(self.cone.posInterval(1, Point3(pos.x + 0.5, pos.y, pos.z + 0.5)))
+            self.trap_seq.start()
             
 
 

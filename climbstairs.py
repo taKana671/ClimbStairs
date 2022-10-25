@@ -21,31 +21,25 @@ class SnowMan(NodePath):
     def __init__(self, world):
         model = base.loader.loadModel('models/snowman/snowman')
         model.setScale(0.3)
-        end, tip = model.getTightBounds()
-        size = tip - end
-        height = size.z / 2
-        radius = size.x / 2
-        shape = BulletCapsuleShape(radius, height, ZUp)
+        height, radius = 2.0, 0.5
+        shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'snowman'))
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1))
         self.setPos(-1, 2, 0)
         self.setH(90)
-
-        # self.setScale(0.3)
         model.reparentTo(self)
         model.setPos(0, 0, -1)
-        self.stair = -1
+        self.climbed_steps = -1
 
         world.attachCharacter(self.node())
 
-    def which_stair(self, names):
-        '''names: list of node name
-        '''
-        if names:
-            now_stair = min(int(name.split('_')[1]) for name in names)
-            if now_stair != self.stair:
-                self.stair = now_stair
+    def calc_climbed_steps(self):
+        """Because the center z of snowman is about 0.95,
+           int(z) - 1 means index of the stair on which snowman is.
+        """
+        if self.node().isOnGround():
+            self.climbed_steps = int(self.getPos().z) - 1
 
 
 class ClimbStairs(ShowBase):
@@ -73,15 +67,15 @@ class ClimbStairs(ShowBase):
 
         self.holder = ObstaclesHolder(100)
         self.shapes = Shapes(self.scene.stairs, self.world, self.character, self.holder)
-        self.cones = Cones(self.scene.stairs, self.world, self.character, self.holder)
+        # self.cones = Cones(self.scene.stairs, self.world, self.character, self.holder)
         
         self.spheres_wait_time = 0
         self.cones_wait_time = 0
 
         # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # *******************************************
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -152,46 +146,47 @@ class ClimbStairs(ShowBase):
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character(dt)
+        self.character.calc_climbed_steps()
+        # print(self.character.node().isOnGround())
+        # print(self.character.climbed_steps)
 
+        # if random.randint(1, 5) == 1 and not self.cones.trap_seq.isPlaying():
+        #     self.cones.set_trap(self.character.climbed_steps + 1)
+        
         if task.time > self.spheres_wait_time:
             self.shapes.start()
             self.spheres_wait_time += 3
 
-        if self.character.stair >= 1:
-            if task.time > self.cones_wait_time:
-                self.cones.start()
-                self.cones_wait_time += 10000
-        
-        
-        
-        # result = self.world.contactTest(self.scene.floor.node())
-        # for con in result.getContacts():
-        #     if (name := con.getNode0().getName()) != 'snowman':
-        #         np = self.holder.pop(int(name))
-        #         self.world.remove(np.node())
-        #         np.removeNode()
 
-        stairs = []
+
+        
+        # if self.character.climbed_steps >= 1:
+        #     if task.time > self.cones_wait_time:
+        #         self.cones.start()
+        #         self.cones_wait_time += 10000
+        
+        
+        
+        result = self.world.contactTest(self.scene.floor.node())
+        for con in result.getContacts():
+            if (name := con.getNode0().getName()) != 'snowman':
+                np = self.holder.pop(int(name))
+                self.world.remove(np.node())
+                np.removeNode()
+
+
         result = self.world.contactTest(self.character.node())
         for con in result.getContacts():
             if (name := con.getNode1().getName()).startswith('stairs'):
-                stairs.append(name)
-        self.character.which_stair(stairs)
+                mp = con.getManifoldPoint()
+                # print(name)
+                # print('B', mp.getPositionWorldOnB())
 
+      
 
-
-        # result = self.world.contactTest(self.ball.node())
-
-        # for con in result.getContacts():
-        #     print(con.getNode0().getName(), con.getNode1().getName())
-        #     mp = con.getManifoldPoint()
-        #     print(mp.getLocalPointA())
-
-
-        # print('camera_pos', self.camera.getPos())
-        # print('camera_lookat', self.look_x, self.look_y, self.look_z)
-        # # print('camera_hpr', self.camera.getHpr())
-        # print('----------------------')
+        self.character.calc_climbed_steps()
+        # print(self.character.node().isOnGround())
+        # print(self.character.climbed_steps)
 
         self.world.doPhysics(dt)
         return task.cont

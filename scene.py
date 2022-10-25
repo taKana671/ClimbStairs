@@ -50,10 +50,24 @@ class Stairs(NodePath):
 
     def center(self, n):
         if n < len(self.stairs):
-            np = self.stairs[n]
-            _, tip = np.getTightBounds()
-            return Point3(self.edge * n, 0, tip.z)
+            return Point3(self.edge * n, 0, n + 1)
         return None
+
+    # 0 LPoint3f(0, 0, 1)
+    # 1 LPoint3f(1, 0, 2)
+    # 2 LPoint3f(2, 0, 3)
+    # 3 LPoint3f(3, 0, 4)
+    # 4 LPoint3f(4, 0, 5)
+    # 5 LPoint3f(5, 0, 6)
+    # 6 LPoint3f(6, 0, 7)
+    # 7 LPoint3f(7, 0, 8)
+    # 8 LPoint3f(8, 0, 9)
+    # 9 LPoint3f(9, 0, 10)
+    # 10 LPoint3f(10, 0, 11)
+    # 11 LPoint3f(11, 0, 12)
+    # 12 LPoint3f(12, 0, 13)
+    # 13 LPoint3f(13, 0, 14)
+    # 14 LPoint3f(14, 0, 15)
 
 
 class Cube(NodePath):
