@@ -110,21 +110,57 @@ class Cones(Obstacles):
         self.stairs = stairs
         self.character = character
         self.creater = ConesCreater()
-        self.cone = self.creater.create_cone()
-        self.world.attachRigidBody(self.cone.node())
-        self.cone.setScale(0.5)
-        self.cone.setR(-90)
-        self.trap_seq = Parallel()
+        self.cones = [cone for cone in self.make_cones()]
+        self.appeared = False
+        self.hidden = True
+        self.target_step = -1
 
-    def set_trap(self, n):
-        if n < self.stairs.top_stair:
-            pos = self.stairs.center(n)
-            self.cone.setPos(Point3(pos.x + 2, pos.y, pos.z + 0.5))
-            # self.cone.setPos(pos)
-            self.cone.reparentTo(self)
-            self.trap_seq.append(self.cone.posInterval(1, Point3(pos.x + 0.5, pos.y, pos.z + 0.5)))
-            self.trap_seq.start()
-            
+    def set_target_step(self):
+        start = self.target_step + 1
+        if (end := start + 10) >= self.stairs.top_stair:
+            end = self.stairs.top_stair
+        next_step = random.randint(start, end)
+        self.target_step = next_step
+        print('next', self.target_step)
+
+    def make_cones(self):
+        n = self.stairs.left_end - self.stairs.right_end
+        for _ in range(n):
+            cone = self.creater.create_cone()
+            cone.setR(-90)
+            self.world.attachRigidBody(cone.node())
+            yield cone
+
+    def appear(self):
+
+        pos = self.stairs.center(self.target_step)
+
+        self.appear_seq = Parallel()
+        for i, cone in enumerate(self.cones):
+            y = self.stairs.left_end - (i + 0.5)
+            cone.setPos(Point3(pos.x + 2, y, pos.z))
+            cone.reparentTo(self)
+            seq = Sequence(
+                cone.posInterval(1, Point3(pos.x + 0.8, y, pos.z + 0.5)),
+                Wait(2)
+            )
+            self.appear_seq.append(seq)
+
+        self.appear_seq.start()
+
+    def hide(self):
+        pos = self.stairs.center(self.target_step)
+
+        self.hide_seq = Parallel()
+
+        for i, cone in enumerate(self.cones):
+            y = self.stairs.left_end - (i + 0.5)
+            seq = Sequence(
+                cone.posInterval(1, Point3(pos.x + 2, y, pos.z + 0.5)),
+                Func(lambda: cone.detachNode()))
+            self.hide_seq.append(seq)
+        self.hide_seq.start()
+
 
 
     

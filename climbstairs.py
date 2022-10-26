@@ -25,7 +25,7 @@ class SnowMan(NodePath):
         shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'snowman'))
         self.reparentTo(base.render)
-        self.setCollideMask(BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(1))
         self.setPos(-1, 2, 0)
         self.setH(90)
         model.reparentTo(self)
@@ -67,15 +67,16 @@ class ClimbStairs(ShowBase):
 
         self.holder = ObstaclesHolder(100)
         self.shapes = Shapes(self.scene.stairs, self.world, self.character, self.holder)
-        # self.cones = Cones(self.scene.stairs, self.world, self.character, self.holder)
-        
+        self.cones = Cones(self.scene.stairs, self.world, self.character, self.holder)
+        self.cones.set_target_step()
+
         self.spheres_wait_time = 0
         self.cones_wait_time = 0
 
         # *******************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # *******************************************
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -150,26 +151,30 @@ class ClimbStairs(ShowBase):
         # print(self.character.node().isOnGround())
         # print(self.character.climbed_steps)
 
-        # if random.randint(1, 5) == 1 and not self.cones.trap_seq.isPlaying():
-        #     self.cones.set_trap(self.character.climbed_steps + 1)
-        
         if task.time > self.spheres_wait_time:
             self.shapes.start()
             self.spheres_wait_time += 3
 
+        if self.cones.hidden and not self.cones.appeared:
+            if self.cones.target_step - 1 == self.character.climbed_steps and \
+                    not self.character.node().isOnGround():
+                self.cones.appear()
+                self.cones.hidden = False
+                self.cones.appeared = True
+        elif not self.cones.hidden and self.cones.appeared:
+            if not self.cones.appear_seq.isPlaying():
+                self.cones.hide()
+                self.cones.appeared = False
+        elif not self.cones.hidden and not self.cones.appeared:
+            if not self.cones.hide_seq.isPlaying():
+                self.cones.set_target_step()
+                self.cones.hidden = True
+                self.cones.appeared = False
 
-
-        
-        # if self.character.climbed_steps >= 1:
-        #     if task.time > self.cones_wait_time:
-        #         self.cones.start()
-        #         self.cones_wait_time += 10000
-        
-        
-        
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
             if (name := con.getNode0().getName()) != 'snowman':
+                print(name)
                 np = self.holder.pop(int(name))
                 self.world.remove(np.node())
                 np.removeNode()
@@ -177,7 +182,7 @@ class ClimbStairs(ShowBase):
 
         result = self.world.contactTest(self.character.node())
         for con in result.getContacts():
-            if (name := con.getNode1().getName()).startswith('stairs'):
+            if not (name := con.getNode1().getName()).startswith('stairs'):
                 mp = con.getManifoldPoint()
                 # print(name)
                 # print('B', mp.getPositionWorldOnB())
@@ -193,18 +198,11 @@ class ClimbStairs(ShowBase):
 
     def move_camera(self, direction, move):
         if direction == 'z':
-            # vec = Vec3(-1, 1, 0)
-            vec = Vec3(-1, 1, 1)
-            # self.ball.node().setMass(1)
-            self.ball.node().setActive(True)
-            self.ball.node().applyCentralImpulse(vec.normalized() * 20)
-
-            # self.ball.node().applyImpulse(vec.normalized() * 20, self.ball.getPos())
-            # z = self.camera.getZ()
-            # if move == 'up':
-            #     self.camera.setZ(z + 1)
-            # elif move == 'down':
-            #     self.camera.setZ(z - 1)
+            z = self.camera.getZ()
+            if move == 'up':
+                self.camera.setZ(z + 1)
+            elif move == 'down':
+                self.camera.setZ(z - 1)
         elif direction == 'x':
             x = self.camera.getX()
             if move == 'up':

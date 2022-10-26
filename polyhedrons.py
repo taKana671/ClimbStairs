@@ -215,7 +215,7 @@ class Polyhedron(NodePath):
         self.node().addShape(shape)
         self.node().setMass(1)
         self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
         self.setScale(0.7)
         # self.setScale(2)
 
@@ -234,6 +234,7 @@ class Cone(NodePath):
         self.node().setRestitution(0.7)
         self.setCollideMask(BitMask32.bit(2))
         self.setColor(LColor(0.75, 0.75, 0.75, 1))
+        self.setScale(0.7)
 
 
 class TestShape(NodePath):
