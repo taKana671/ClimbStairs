@@ -13,7 +13,7 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from obstacles import Shapes, ObstaclesHolder, Cones
+from obstacles import TumblingObjects, ObstaclesHolder, Cones, Gimmick, CircularSaws
 
 
 class SnowMan(NodePath):
@@ -66,9 +66,9 @@ class ClimbStairs(ShowBase):
         self.character = SnowMan(self.world)
 
         self.holder = ObstaclesHolder(100)
-        self.shapes = Shapes(self.scene.stairs, self.world, self.character, self.holder)
-        self.cones = Cones(self.scene.stairs, self.world, self.character, self.holder)
-        self.cones.set_target_step()
+        self.tumbling_obj = TumblingObjects(self.scene.stairs, self.world)
+        self.cones = Cones(self.scene.stairs, self.world)
+        # self.saw = CircularSaws(self.scene.stairs, self.world)
 
         self.spheres_wait_time = 0
         self.cones_wait_time = 0
@@ -152,32 +152,30 @@ class ClimbStairs(ShowBase):
         # print(self.character.climbed_steps)
 
         if task.time > self.spheres_wait_time:
-            self.shapes.start()
+            if (idx := self.holder.empty_idx()) is not None:
+                pos = self.character.getPos()
+                obj = self.tumbling_obj.start(str(idx), pos)
+                self.holder[idx] = obj
             self.spheres_wait_time += 3
 
-        if self.cones.hidden and not self.cones.appeared:
+        if self.cones.state == Gimmick.DISAPPEAR:
             if self.cones.target_step - 1 == self.character.climbed_steps and \
                     not self.character.node().isOnGround():
                 self.cones.appear()
-                self.cones.hidden = False
-                self.cones.appeared = True
-        elif not self.cones.hidden and self.cones.appeared:
+        elif self.cones.state == Gimmick.APPEARING:
             if not self.cones.appear_seq.isPlaying():
-                self.cones.hide()
-                self.cones.appeared = False
-        elif not self.cones.hidden and not self.cones.appeared:
-            if not self.cones.hide_seq.isPlaying():
+                self.cones.disappear()
+        elif self.cones.state == Gimmick.DISAPPEARING:
+            if not self.cones.disappear_seq.isPlaying():
                 self.cones.set_target_step()
-                self.cones.hidden = True
-                self.cones.appeared = False
 
-        result = self.world.contactTest(self.scene.floor.node())
-        for con in result.getContacts():
-            if (name := con.getNode0().getName()) != 'snowman':
-                print(name)
-                np = self.holder.pop(int(name))
-                self.world.remove(np.node())
-                np.removeNode()
+        # result = self.world.contactTest(self.scene.floor.node())
+        # for con in result.getContacts():
+        #     if (name := con.getNode0().getName()) != 'snowman':
+        #         print(name)
+        #         np = self.holder.pop(int(name))
+        #         self.world.remove(np.node())
+        #         np.removeNode()
 
 
         result = self.world.contactTest(self.character.node())
@@ -189,7 +187,7 @@ class ClimbStairs(ShowBase):
 
       
 
-        self.character.calc_climbed_steps()
+        # self.character.calc_climbed_steps()
         # print(self.character.node().isOnGround())
         # print(self.character.climbed_steps)
 

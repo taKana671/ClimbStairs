@@ -55,7 +55,7 @@ class PolyhedronsCreater:
         self.idx = 0
         self.polh_names = tuple(POLYHEDRONS.keys())
 
-    def create_polyhedron(self, rb_node_name):
+    def make_polyhedron(self, rb_node_name):
         if self.idx >= len(self.polh_names):
             self.idx = 0
         polh_name = self.polh_names[self.idx]
@@ -144,6 +144,10 @@ class ConesCreater:
         self.cone_radius = radius
         self.faces = [face for face in self.get_faces()]
 
+    def make_cone(self, rb_node_name):
+        geom_node = self.make_geom_node()
+        return Cone(rb_node_name, geom_node)
+
     def get_faces(self):
         point = Vec3(0, 0, self.cone_length)
 
@@ -175,10 +179,6 @@ class ConesCreater:
                     else:
                         yield (i + j - 1, i, i + j)
                 i += pts
-
-    def create_cone(self):
-        geom_node = self.make_geom_node()
-        return Cone(geom_node)
 
     def make_geom_node(self):
         format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
@@ -222,19 +222,34 @@ class Polyhedron(NodePath):
 
 class Cone(NodePath):
 
-    def __init__(self, geom_node):
-        super().__init__(BulletRigidBodyNode('cone'))
+    def __init__(self, name, geom_node):
+        super().__init__(BulletRigidBodyNode(name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
         np.reparentTo(self)
         shape = BulletConvexHullShape()
         shape.addGeom(geom_node.getGeom(0))
         self.node().addShape(shape)
-        # self.node().setMass(1)
         self.node().setRestitution(0.7)
         self.setCollideMask(BitMask32.bit(2))
         self.setColor(LColor(0.75, 0.75, 0.75, 1))
         self.setScale(0.7)
+
+
+class CircularSaw(NodePath):
+
+    def __init__(self, name, geom_node):
+        super().__init__(BulletRigidBodyNode(name))
+        self.np = self.attachNewNode(geom_node)
+        self.np.setTwoSided(True)
+        self.np.reparentTo(self)
+        shape = BulletConvexHullShape()
+        shape.addGeom(geom_node.getGeom(0))
+        self.node().addShape(shape)
+        self.node().setRestitution(0.7)
+        self.setCollideMask(BitMask32.bit(2))
+        self.setScale(0.5, 0.5, 0.25)
+        self.setHpr(90, 90, 0)
 
 
 class TestShape(NodePath):
@@ -243,7 +258,7 @@ class TestShape(NodePath):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
         creater = PolyhedronsCreater()
-        node = creater.get_geom_node('truncated_tetrahedron')
+        node = creater.get_geom_node('octagon_prism')
 
         # creater = ConesCreater()
         # node = creater.make_geom_node()

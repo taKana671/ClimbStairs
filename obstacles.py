@@ -1,35 +1,11 @@
 import random
 from enum import Enum, auto
 
-from panda3d.bullet import BulletRigidBodyNode, BulletSphereShape, BulletBoxShape
-from panda3d.bullet import BulletSoftBodyNode, BulletHelper
-from panda3d.core import GeomVertexFormat
-from panda3d.core import Vec2, Vec3, Point3, LColor, BitMask32
-from panda3d.core import NodePath, PandaNode, TransformState, GeomNode, GeomVertexFormat
-
+from panda3d.core import Vec3, Point3, LColor
+from panda3d.core import NodePath, PandaNode
 from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
 
-from polyhedrons import PolyhedronsCreater, ConesCreater
-
-
-class Colors(int, Enum):
-
-    LIME = (0, LColor(0, 1, 0, 1))
-    AQUAMARINE = (1, LColor(0.49, 1, 0.83, 1))
-    YELLOW = (2, LColor(1, 1, 0, 1))
-    GREENYELLOW = (3, LColor(0.67, 1, 0.18, 1))
-
-    def __new__(cls, id_, color):
-        obj = int.__new__(cls, id_)
-        obj._value_ = id_
-        obj.color = color
-        return obj
-
-    @classmethod
-    def select(cls):
-        n = random.randint(0, 3)
-        obj = cls(n)
-        return obj.color
+from polyhedrons import PolyhedronsCreater, ConesCreater, CircularSaw
 
 
 class ObstaclesHolder:
@@ -58,84 +34,78 @@ class ObstaclesHolder:
         return item
 
 
-class Obstacles(NodePath):
+class GimmickRoot(NodePath):
 
-    def __init__(self, world, objects_holder):
-        super().__init__(PandaNode('fallenObjects'))
+    def __init__(self):
+        super().__init__(PandaNode('gimmikRoot'))
         self.reparentTo(base.render)
+
+
+class TumblingObjects(GimmickRoot):
+
+    def __init__(self, stairs, world):
+        super().__init__()
         self.world = world
-        self.holder = objects_holder
-
-    def start(self):
-        if (idx := self.holder.empty_idx()) is not None:
-            obj = self.create(str(idx))
-            self.holder[idx] = obj
-            obj.reparentTo(self)
-            self.place(obj)
-            self.world.attachRigidBody(obj.node())
-            self.apply_force(obj)
-
-
-class Shapes(Obstacles):
-
-    def __init__(self, stairs, world, character, objects_holder):
-        super().__init__(world, objects_holder)
         self.stairs = stairs
-        self.character = character
         self.creater = PolyhedronsCreater()
 
-    def place(self, obj):
+    def start(self, node_name, chara_pos):
+        polh = self.creater.make_polyhedron(node_name)
+        polh.reparentTo(self)
+        self.place(polh, chara_pos)
+        self.world.attachRigidBody(polh.node())
+        self.apply_force(polh)
+        return polh
+
+    def place(self, polh, chara_pos):
         stair_center = self.stairs.center(self.stairs.top_stair)
-        chara_pos = self.character.getPos()
-        end, tip = obj.getTightBounds()
-        size = tip - end
-        z = stair_center.z + size.z / 2
+        z = stair_center.z + 2
         pos = Point3(stair_center.x, chara_pos.y, z)
-        obj.setPos(pos)
+        polh.setPos(pos)
 
-    def apply_force(self, obj):
+    def apply_force(self, polh):
         force = Vec3(-1, 0, -1).normalized() * 5
-        obj.node().applyCentralImpulse(force)
-
-    def create(self, name):
-        obj = self.creater.create_polyhedron(name)
-
-        return obj
+        polh.node().applyCentralImpulse(force)
 
 
-class Cones(Obstacles):
+class Gimmick(Enum):
 
-    def __init__(self, stairs, world, character, objects_holder):
-        super().__init__(world, objects_holder)
+    APPEARING = auto()
+    DISAPPEARING = auto()
+    DISAPPEAR = auto()
+
+
+class Cones(GimmickRoot):
+
+    def __init__(self, stairs, world):
+        super().__init__()
         self.stairs = stairs
-        self.character = character
+        self.world = world
         self.creater = ConesCreater()
         self.cones = [cone for cone in self.make_cones()]
-        self.appeared = False
-        self.hidden = True
+        self.state = None
         self.target_step = -1
+        self.set_target_step()
+
+    def make_cones(self):
+        n = self.stairs.left_end - self.stairs.right_end
+        for i in range(n):
+            cone = self.creater.make_cone(f'cones_{i}')
+            cone.setR(-90)
+            self.world.attachRigidBody(cone.node())
+            yield cone
 
     def set_target_step(self):
         start = self.target_step + 1
         if (end := start + 10) >= self.stairs.top_stair:
             end = self.stairs.top_stair
+
         next_step = random.randint(start, end)
         self.target_step = next_step
+        self.state = Gimmick.DISAPPEAR
         print('next', self.target_step)
 
-    def make_cones(self):
-        n = self.stairs.left_end - self.stairs.right_end
-        for _ in range(n):
-            cone = self.creater.create_cone()
-            cone.setR(-90)
-            self.world.attachRigidBody(cone.node())
-            yield cone
-
-    def appear(self):
-
-        pos = self.stairs.center(self.target_step)
-
-        self.appear_seq = Parallel()
+    def _make_appear_seq(self, pos):
         for i, cone in enumerate(self.cones):
             y = self.stairs.left_end - (i + 0.5)
             cone.setPos(Point3(pos.x + 2, y, pos.z))
@@ -144,23 +114,51 @@ class Cones(Obstacles):
                 cone.posInterval(1, Point3(pos.x + 0.8, y, pos.z + 0.5)),
                 Wait(2)
             )
-            self.appear_seq.append(seq)
+            yield seq
 
-        self.appear_seq.start()
-
-    def hide(self):
+    def appear(self):
         pos = self.stairs.center(self.target_step)
+        self.appear_seq = Parallel(*[seq for seq in self._make_appear_seq(pos)])
+        self.appear_seq.start()
+        self.state = Gimmick.APPEARING
 
-        self.hide_seq = Parallel()
-
+    def _make_disappear_seq(self, pos):
         for i, cone in enumerate(self.cones):
             y = self.stairs.left_end - (i + 0.5)
             seq = Sequence(
                 cone.posInterval(1, Point3(pos.x + 2, y, pos.z + 0.5)),
-                Func(lambda: cone.detachNode()))
-            self.hide_seq.append(seq)
-        self.hide_seq.start()
+                Func(lambda: cone.detachNode())
+            )
+            yield seq
+
+    def disappear(self):
+        pos = self.stairs.center(self.target_step)
+        self.disappear_seq = Parallel(*[seq for seq in self._make_disappear_seq(pos)])
+        self.disappear_seq.start()
+        self.state = Gimmick.DISAPPEARING
 
 
+class CircularSaws(GimmickRoot):
 
-    
+    def __init__(self, stairs, world):
+        super().__init__()
+        self.stairs = stairs
+        self.world = world
+        self.creater = PolyhedronsCreater()
+        self.make_circular_saw()
+
+    def make_circular_saw(self):
+        colors = [
+            LColor(1, 0, 0, 1),  # red
+            LColor(0, 0, 1, 1),
+            LColor(0.75, 0.75, 0.75, 1),  # light gray
+        ]
+        geom_node = self.creater.get_geom_node(
+            'octagon_prism', colors
+        )
+        self.saw = CircularSaw('saw', geom_node)
+        self.saw.reparentTo(self)
+        self.world.attachRigidBody(self.saw.node())
+        self.saw.setPos(-2, 4, 0)
+
+
