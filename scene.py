@@ -4,7 +4,7 @@ from panda3d.core import Vec3, LColor, Point3, BitMask32
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import CardMaker
 
-from polyhedrons import PolyhedronsCreater
+from geommaker import PolyhedronGeomMaker
 
 
 BLACK = LColor(0.0, 0.0, 0.0, 0.0)
@@ -18,8 +18,8 @@ class Stairs(NodePath):
         self.reparentTo(scene)
         cube_root = NodePath(PandaNode('cubeRoot'))
 
-        creater = PolyhedronsCreater()
-        geom_node = creater.get_geom_node('cube', [AMETHYST, BLACK])
+        creater = PolyhedronGeomMaker()
+        geom_node = creater.make_geomnode('cube', [AMETHYST, BLACK])
         self.np_cube = cube_root.attachNewNode(geom_node)
         self.np_cube.setTwoSided(True)
 

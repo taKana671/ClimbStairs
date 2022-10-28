@@ -49,13 +49,13 @@ TEXCOORDS = [
 ]
 
 
-class PolyhedronsCreater:
+class PolyhedronGeomMaker:
 
     def __init__(self):
         self.idx = 0
         self.polh_names = tuple(POLYHEDRONS.keys())
 
-    def make_polyhedron(self, rb_node_name):
+    def __call__(self):
         if self.idx >= len(self.polh_names):
             self.idx = 0
         polh_name = self.polh_names[self.idx]
@@ -63,13 +63,13 @@ class PolyhedronsCreater:
 
         self.data = POLYHEDRONS[polh_name]
         self.colors = self.select_colors()
-        geom_node = self.make_geom_node()
-        return Polyhedron(rb_node_name, geom_node)
+        geomnode = self._make_geomnode()
+        return geomnode
 
-    def get_geom_node(self, key, colors=None):
+    def make_geomnode(self, key, colors=None):
         self.data = POLYHEDRONS[key]
         self.colors = colors if colors else self.select_colors()
-        node = self.make_geom_node()
+        node = self._make_geomnode()
         return node
 
     def faces(self):
@@ -106,7 +106,7 @@ class PolyhedronsCreater:
                         yield (i + j - 1, i, i + j)
                 i += pts
 
-    def make_geom_node(self):
+    def _make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()  # getV3n3c4
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
         vdata.setNumRows(self.num_rows)
@@ -136,17 +136,13 @@ class PolyhedronsCreater:
         return node
 
 
-class ConesCreater:
+class ConeGeomMaker:
 
     def __init__(self, length=2, cycle=12, radius=0.5):
         self.cone_length = length
         self.cycle = cycle
         self.cone_radius = radius
         self.faces = [face for face in self.get_faces()]
-
-    def make_cone(self, rb_node_name):
-        geom_node = self.make_geom_node()
-        return Cone(rb_node_name, geom_node)
 
     def get_faces(self):
         point = Vec3(0, 0, self.cone_length)
@@ -180,7 +176,7 @@ class ConesCreater:
                         yield (i + j - 1, i, i + j)
                 i += pts
 
-    def make_geom_node(self):
+    def make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
         vdata.setNumRows(self.cycle + 1)
@@ -203,62 +199,13 @@ class ConesCreater:
         return node
 
 
-class Polyhedron(NodePath):
-
-    def __init__(self, name, geom_node):
-        super().__init__(BulletRigidBodyNode(name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
-        np.reparentTo(self)
-        shape = BulletConvexHullShape()
-        shape.addGeom(geom_node.getGeom(0))
-        self.node().addShape(shape)
-        self.node().setMass(1)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
-        self.setScale(0.7)
-        # self.setScale(2)
-
-
-class Cone(NodePath):
-
-    def __init__(self, name, geom_node):
-        super().__init__(BulletRigidBodyNode(name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
-        np.reparentTo(self)
-        shape = BulletConvexHullShape()
-        shape.addGeom(geom_node.getGeom(0))
-        self.node().addShape(shape)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(2))
-        self.setColor(LColor(0.75, 0.75, 0.75, 1))
-        self.setScale(0.7)
-
-
-class CircularSaw(NodePath):
-
-    def __init__(self, name, geom_node):
-        super().__init__(BulletRigidBodyNode(name))
-        self.np = self.attachNewNode(geom_node)
-        self.np.setTwoSided(True)
-        self.np.reparentTo(self)
-        shape = BulletConvexHullShape()
-        shape.addGeom(geom_node.getGeom(0))
-        self.node().addShape(shape)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(2))
-        self.setScale(0.5, 0.5, 0.25)
-        self.setHpr(90, 90, 0)
-
-
 class TestShape(NodePath):
 
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-        creater = PolyhedronsCreater()
-        node = creater.get_geom_node('octagon_prism')
+        creater = PolyhedronGeomMaker()
+        node = creater.make_geomnode('octagon_prism')
 
         # creater = ConesCreater()
         # node = creater.make_geom_node()
@@ -290,7 +237,7 @@ class Game(ShowBase):
         # *******************************************
 
         shape = TestShape()
-    
+
         self.world.attachRigidBody(shape.node())
         shape.hprInterval(5, (360, 360, 360)).loop()
         self.taskMgr.add(self.update, 'update')

@@ -1,5 +1,5 @@
-import random
 import sys
+from enum import Enum, auto
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld
@@ -13,7 +13,44 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from obstacles import TumblingObjects, ObstaclesHolder, Cones, Gimmick, CircularSaws
+from gimmicks import Polyhedrons, Cones, CircularSaws
+
+
+
+class Status(Enum):
+
+    READY = auto()
+    APPEARING = auto()
+    APPEAR = auto()
+    DISAPPEARING = auto()
+    DISAPPEAR = auto()
+
+
+
+class ObstaclesHolder:
+
+    def __init__(self, length):
+        self.data = [None for _ in range(length)]
+
+    def __len__(self):
+        return sum(1 for item in self.data if item is not None)
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def empty_idx(self):
+        for i, item in enumerate(self.data):
+            if not item:
+                return i
+        return None
+
+    def pop(self, key):
+        item = self.data[key]
+        self.data[key] = None
+        return item
 
 
 class SnowMan(NodePath):
@@ -41,6 +78,11 @@ class SnowMan(NodePath):
         if self.node().isOnGround():
             self.climbed_steps = int(self.getPos().z) - 1
 
+    def is_jump(self, stair):
+        if stair == self.climbed_steps and \
+                not self.node().isOnGround():
+            return True
+
 
 class ClimbStairs(ShowBase):
 
@@ -66,12 +108,15 @@ class ClimbStairs(ShowBase):
         self.character = SnowMan(self.world)
 
         self.holder = ObstaclesHolder(100)
-        self.tumbling_obj = TumblingObjects(self.scene.stairs, self.world)
+        self.polhs = Polyhedrons(self.scene.stairs, self.world)
+        self.polhs_timer = 0
+        
         self.cones = Cones(self.scene.stairs, self.world)
+        self.cones_state = Status.READY
+        self.cones_timer = 0
+        
+    
         # self.saw = CircularSaws(self.scene.stairs, self.world)
-
-        self.spheres_wait_time = 0
-        self.cones_wait_time = 0
 
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -151,38 +196,47 @@ class ClimbStairs(ShowBase):
         # print(self.character.node().isOnGround())
         # print(self.character.climbed_steps)
 
-        if task.time > self.spheres_wait_time:
+        if task.time > self.polhs_timer:
             if (idx := self.holder.empty_idx()) is not None:
                 pos = self.character.getPos()
-                obj = self.tumbling_obj.start(str(idx), pos)
+                obj = self.polhs.start(str(idx), pos)
                 self.holder[idx] = obj
-            self.spheres_wait_time += 3
+            self.polhs_timer += 3
 
-        if self.cones.state == Gimmick.DISAPPEAR:
-            if self.cones.target_step - 1 == self.character.climbed_steps and \
-                    not self.character.node().isOnGround():
-                self.cones.appear()
-        elif self.cones.state == Gimmick.APPEARING:
-            if not self.cones.appear_seq.isPlaying():
-                self.cones.disappear()
-        elif self.cones.state == Gimmick.DISAPPEARING:
-            if not self.cones.disappear_seq.isPlaying():
-                self.cones.set_target_step()
+        if self.cones_state == Status.READY:
+            if self.character.is_jump(self.cones.stair - 1):
+                self.cones_state = Status.APPEARING
+        elif self.cones_state == Status.APPEARING:
+            if self.cones.appear(dt):
+                self.cones_timer = task.time + 1
+                self.cones_state = Status.APPEAR
+        elif self.cones_state == Status.APPEAR:
+            if task.time > self.cones_timer:
+                self.cones_timer = 0
+                self.cones_state = Status.DISAPPEARING
+        elif self.cones_state == Status.DISAPPEARING:
+            if self.cones.disappear(dt):
+                self.cones.finish()
+                self.cones_state = Status.DISAPPEAR
+        elif self.cones_state == Status.DISAPPEAR:
+            self.cones.setup()
+            self.cones_state = Status.READY
 
-        # result = self.world.contactTest(self.scene.floor.node())
-        # for con in result.getContacts():
-        #     if (name := con.getNode0().getName()) != 'snowman':
-        #         print(name)
-        #         np = self.holder.pop(int(name))
-        #         self.world.remove(np.node())
-        #         np.removeNode()
 
+        result = self.world.contactTest(self.scene.floor.node())
+        for con in result.getContacts():
+            if (name := con.getNode0().getName()) != 'snowman' and not name.startswith('cones'):
+                # print([cone.getPos() for cone in self.cones.cones])
+                # print(name)
+                np = self.holder.pop(int(name))
+                self.world.remove(np.node())
+                np.removeNode()
 
         result = self.world.contactTest(self.character.node())
         for con in result.getContacts():
             if not (name := con.getNode1().getName()).startswith('stairs'):
                 mp = con.getManifoldPoint()
-                # print(name)
+                print(name)
                 # print('B', mp.getPositionWorldOnB())
 
       
