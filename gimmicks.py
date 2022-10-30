@@ -122,7 +122,7 @@ class CircularSaws(GimmickRoot):
         self.saws = self.make_saws()
 
     def make_saws(self):
-        stair_center = self.stairs.center(0)
+        stair_center = self.stairs.center(1)
         dic = dict()
 
         for key in ('left', 'right'):

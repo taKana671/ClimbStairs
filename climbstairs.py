@@ -126,9 +126,9 @@ class ClimbStairs(ShowBase):
         self.saws_state = Status.DISAPPEAR
 
         # *******************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # *******************************************
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -258,7 +258,7 @@ class ClimbStairs(ShowBase):
         
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
-            if (name := con.getNode0().getName()) != 'snowman' and not name.startswith('saw'):
+            if (name := con.getNode0().getName()) != 'snowman': # and not name.startswith('saw'):
                 # print([cone.getPos() for cone in self.cones.cones])
                 # print(name)
                 np = self.holder.pop(int(name))
@@ -269,7 +269,7 @@ class ClimbStairs(ShowBase):
         for con in result.getContacts():
             if not (name := con.getNode1().getName()).startswith('stairs'):
                 mp = con.getManifoldPoint()
-                # print(name)
+                print(name)
                 # print('B', mp.getPositionWorldOnB())
 
       

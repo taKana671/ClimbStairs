@@ -199,14 +199,92 @@ class PyramidGeomMaker:
         return node
 
 
+class SphereGeomMaker:
+
+    def __init__(self):
+        self.data = POLYHEDRONS['icosahedron']
+
+    def calc_midpoints(self, face):
+        """face: A list of Vec3, having 3 elements.
+        """
+        for i, j in ((0, 1), (1, 2), (2, 0)):
+            pt1 = face[i]
+            pt2 = face[j]
+            mid_pt = (pt1 + pt2) / 2
+            yield mid_pt
+
+        # for i, pt in enumerate(face):
+        #     idx = i + 1 if i < len(face) - 1 else 0
+        #     next_pt = face[idx]
+        #     mid_pt = (pt + next_pt) / 2
+        #     yield mid_pt
+
+    def subdivide(self, face):
+        midpoints = [pt for pt in self.calc_midpoints(face)]
+        # (0, 2), (1, 0), (2, 1) 
+
+        for i, vertex in enumerate(face):
+            j = len(face) - 1 if i == 0 else i - 1
+            yield [vertex, midpoints[i], midpoints[j]]
+        yield midpoints
+
+    def faces(self):
+        vertices = self.data['vertices']
+        faces = self.data['faces']
+
+        
+        subdivided_li = []
+        for idxes in faces:
+            face = [Point3(*vertices[i]) for i in idxes]
+            for subdivided_face in self.subdivide(face):
+                subdivided_li.append(subdivided_face)
+                # yield subdivided_face
+        
+        for face in subdivided_li:
+            for subdivided_face in self.subdivide(face):
+                yield subdivided_face
+
+
+    def make_geomnode(self):
+        format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
+        vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
+        vdata.setNumRows(240)
+        vertex = GeomVertexWriter(vdata, 'vertex')
+        # color = GeomVertexWriter(vdata, 'color')
+
+        i = 0
+        tris = GeomTriangles(Geom.UHStatic)
+        
+        for face in self.faces():
+            for pt in face:
+                vertex.addData3(pt.normalized())
+
+            tris.addVertices(i, i + 1, i + 2)
+            i += 3
+
+        # for vertices in self.geom_vertices():
+        #     tris.addVertices(*vertices)
+
+        node = GeomNode('geomnode')
+        geom = Geom(vdata)
+        geom.addPrimitive(tris)
+        node.addGeom(geom)
+
+        return node
+
+
+
 class TestShape(NodePath):
 
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-        creater = PolyhedronGeomMaker()
-        node = creater.make_geomnode('octagon_prism')
 
+        maker = SphereGeomMaker()
+        node = maker.make_geomnode()
+
+        # creater = PolyhedronGeomMaker()
+        # node = creater.make_geomnode('icosahedron')
 
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
@@ -216,7 +294,7 @@ class TestShape(NodePath):
         self.node().addShape(shape)
         self.setCollideMask(BitMask32(1))
         self.setScale(1)
-        # self.setColor(Colors.RED.value)
+        self.setColor(Colors.RED.value)
 
 
 class Game(ShowBase):
@@ -233,6 +311,8 @@ class Game(ShowBase):
         self.world.setDebugNode(collide_debug.node())
         collide_debug.show()
         # *******************************************
+
+        # icosahedron
 
         shape = TestShape()
 
