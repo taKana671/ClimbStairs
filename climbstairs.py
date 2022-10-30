@@ -1,3 +1,4 @@
+import random
 import sys
 from enum import Enum, auto
 
@@ -5,6 +6,7 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletRigidBodyNode, BulletCharacterControllerNode, BulletDebugNode
+from panda3d.bullet import BulletHelper
 from panda3d.core import Vec2, Vec3, LColor, BitMask32, Point3
 from panda3d.core import NodePath, PandaNode, TransformState
 from panda3d.core import AmbientLight, DirectionalLight
@@ -16,7 +18,6 @@ from scene import Scene
 from gimmicks import Polyhedrons, Cones, CircularSaws
 
 
-
 class Status(Enum):
 
     READY = auto()
@@ -24,7 +25,7 @@ class Status(Enum):
     APPEAR = auto()
     DISAPPEARING = auto()
     DISAPPEAR = auto()
-
+    MOVING = auto()
 
 
 class ObstaclesHolder:
@@ -62,12 +63,13 @@ class SnowMan(NodePath):
         shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'snowman'))
         self.reparentTo(base.render)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
+        # self.setCollideMask(BitMask32.allOn())
         self.setPos(-1, 2, 0)
         self.setH(90)
         model.reparentTo(self)
         model.setPos(0, 0, -1)
-        self.climbed_steps = -1
+        self.stair = -1
 
         world.attachCharacter(self.node())
 
@@ -76,11 +78,16 @@ class SnowMan(NodePath):
            int(z) - 1 means index of the stair on which snowman is.
         """
         if self.node().isOnGround():
-            self.climbed_steps = int(self.getPos().z) - 1
+            self.stair = int(self.getPos().z) - 1
 
     def is_jump(self, stair):
-        if stair == self.climbed_steps and \
+        if stair == self.stair and \
                 not self.node().isOnGround():
+            return True
+
+    def not_jump(self, stair):
+        if stair == self.stair and \
+                self.node().isOnGround():
             return True
 
 
@@ -110,18 +117,18 @@ class ClimbStairs(ShowBase):
         self.holder = ObstaclesHolder(100)
         self.polhs = Polyhedrons(self.scene.stairs, self.world)
         self.polhs_timer = 0
-        
+
         self.cones = Cones(self.scene.stairs, self.world)
-        self.cones_state = Status.READY
+        self.cones_state = Status.DISAPPEAR
         self.cones_timer = 0
-        
-    
-        # self.saw = CircularSaws(self.scene.stairs, self.world)
+
+        self.saws = CircularSaws(self.scene.stairs, self.world)
+        self.saws_state = Status.DISAPPEAR
 
         # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # *******************************************
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -189,12 +196,17 @@ class ClimbStairs(ShowBase):
         self.character.node().setAngularMovement(omega)
         self.character.node().setLinearMovement(speed, True)
 
+    def select_gimmick_stair(self, exp=None):
+        start = self.character.stair + 1
+        end = self.scene.stairs.top_stair
+        return random.choice([n for n in range(start, end) if n != exp])
+
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character(dt)
         self.character.calc_climbed_steps()
         # print(self.character.node().isOnGround())
-        # print(self.character.climbed_steps)
+        # print(self.character.stair)
 
         if task.time > self.polhs_timer:
             if (idx := self.holder.empty_idx()) is not None:
@@ -205,6 +217,7 @@ class ClimbStairs(ShowBase):
 
         if self.cones_state == Status.READY:
             if self.character.is_jump(self.cones.stair - 1):
+                self.cones.setup()
                 self.cones_state = Status.APPEARING
         elif self.cones_state == Status.APPEARING:
             if self.cones.appear(dt):
@@ -216,16 +229,36 @@ class ClimbStairs(ShowBase):
                 self.cones_state = Status.DISAPPEARING
         elif self.cones_state == Status.DISAPPEARING:
             if self.cones.disappear(dt):
-                self.cones.finish()
                 self.cones_state = Status.DISAPPEAR
         elif self.cones_state == Status.DISAPPEAR:
-            self.cones.setup()
+            self.cones.stair = self.select_gimmick_stair(self.saws.stair)
             self.cones_state = Status.READY
+            print('cone_trap', self.cones.stair)
 
-
+        if self.saws_state == Status.READY:
+            if self.character.is_jump(self.saws.stair - 1):
+                self.saws.setup(self.character.getPos())
+                self.saws_state = Status.APPEARING
+        elif self.saws_state == Status.APPEARING:
+            if self.saws.appear(dt):
+                self.saws_state = Status.MOVING
+        elif self.saws_state == Status.MOVING:
+            if self.saws.move(dt):
+                self.saws_state = Status.DISAPPEARING
+        elif self.saws_state == Status.DISAPPEARING:
+            if self.saws.disappear(dt):
+                self.saws_state = Status.DISAPPEAR
+        elif self.saws_state == Status.DISAPPEAR:
+            self.saws.stair = self.select_gimmick_stair(self.cones.stair)
+            self.saws_state = Status.READY
+            print('saw_trap', self.saws.stair)
+        
+        
+        
+        
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
-            if (name := con.getNode0().getName()) != 'snowman' and not name.startswith('cones'):
+            if (name := con.getNode0().getName()) != 'snowman' and not name.startswith('saw'):
                 # print([cone.getPos() for cone in self.cones.cones])
                 # print(name)
                 np = self.holder.pop(int(name))
@@ -236,7 +269,7 @@ class ClimbStairs(ShowBase):
         for con in result.getContacts():
             if not (name := con.getNode1().getName()).startswith('stairs'):
                 mp = con.getManifoldPoint()
-                print(name)
+                # print(name)
                 # print('B', mp.getPositionWorldOnB())
 
       

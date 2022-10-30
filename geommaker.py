@@ -136,7 +136,7 @@ class PolyhedronGeomMaker:
         return node
 
 
-class ConeGeomMaker:
+class PyramidGeomMaker:
 
     def __init__(self, length=2, cycle=12, radius=0.5):
         self.cone_length = length
@@ -207,8 +207,6 @@ class TestShape(NodePath):
         creater = PolyhedronGeomMaker()
         node = creater.make_geomnode('octagon_prism')
 
-        # creater = ConesCreater()
-        # node = creater.make_geom_node()
 
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
