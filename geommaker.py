@@ -4,12 +4,12 @@ from enum import Enum
 
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
-from panda3d.bullet import BulletBoxShape, BulletPlaneShape
+from panda3d.bullet import BulletBoxShape, BulletPlaneShape, BulletSphereShape
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.core import Vec2, Vec3, LColor, Point3, BitMask32
 from panda3d.core import GeomVertexFormat, GeomVertexData
 from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
-from panda3d.core import GeomNode, NodePath, PandaNode
+from panda3d.core import GeomNode, NodePath, PandaNode, TransparencyAttrib
 from panda3d.core import CardMaker
 
 from panda3d.bullet import BulletCylinderShape, BulletBoxShape, BulletConvexHullShape
@@ -78,7 +78,7 @@ class PolyhedronGeomMaker:
         color_pattern = self.data['color_pattern']
 
         for idxes, n in zip(faces, color_pattern):
-            yield ((Vec3(*vertices[i]) for i in idxes), self.colors[n])
+            yield ((Vec3(vertices[i]) for i in idxes), self.colors[n])
 
     def select_colors(self):
         n = max(self.data['color_pattern'])
@@ -119,7 +119,8 @@ class PolyhedronGeomMaker:
         for face, rgba in self.faces():
             for pt in face:
                 vertex.addData3(pt)
-                normal.addData3(pt.normalize())
+                # normal.addData3(pt.normalize())
+                normal.addData3(pt.normalized())
                 color.addData4f(rgba)
                 # texcoord.addData2f(tex)
 
@@ -203,67 +204,72 @@ class SphereGeomMaker:
 
     def __init__(self):
         self.data = POLYHEDRONS['icosahedron']
+        self.divnum = 3
+
+    def make_geomnode(self, colors=None):
+        self.colors = colors if colors else Colors.select(2)
+        node = self._make_geomnode()
+        return node
+
+    @property
+    def num_rows(self):
+        """One triangle is subdivided into 4.
+           The number of subdivide repetition is self.divnum.
+           An icosahedron has 20 faces and a face has 3 vertices.
+        """
+        return 4 ** self.divnum * 20 * 3
 
     def calc_midpoints(self, face):
         """face: A list of Vec3, having 3 elements.
         """
-        for i, j in ((0, 1), (1, 2), (2, 0)):
-            pt1 = face[i]
+        # (i, j): [(0, 1), (1, 2), (2, 0)]
+        for i, pt1 in enumerate(face):
+            j = i + 1 if i < len(face) - 1 else 0
             pt2 = face[j]
             mid_pt = (pt1 + pt2) / 2
+
             yield mid_pt
 
-        # for i, pt in enumerate(face):
-        #     idx = i + 1 if i < len(face) - 1 else 0
-        #     next_pt = face[idx]
-        #     mid_pt = (pt + next_pt) / 2
-        #     yield mid_pt
+    def subdivide(self, face, divnum=0):
+        if divnum == self.divnum:
+            yield face
+        else:
+            midpoints = [pt for pt in self.calc_midpoints(face)]
 
-    def subdivide(self, face):
-        midpoints = [pt for pt in self.calc_midpoints(face)]
-        # (0, 2), (1, 0), (2, 1) 
-
-        for i, vertex in enumerate(face):
-            j = len(face) - 1 if i == 0 else i - 1
-            yield [vertex, midpoints[i], midpoints[j]]
-        yield midpoints
+            for i, vertex in enumerate(face):
+                j = len(face) - 1 if i == 0 else i - 1
+                face = [vertex, midpoints[i], midpoints[j]]
+                yield from self.subdivide(face, divnum + 1)
+            yield from self.subdivide(midpoints, divnum + 1)
 
     def faces(self):
         vertices = self.data['vertices']
         faces = self.data['faces']
 
-        
-        subdivided_li = []
-        for idxes in faces:
-            face = [Point3(*vertices[i]) for i in idxes]
-            for subdivided_face in self.subdivide(face):
-                subdivided_li.append(subdivided_face)
-                # yield subdivided_face
-        
-        for face in subdivided_li:
-            for subdivided_face in self.subdivide(face):
-                yield subdivided_face
+        for tup in faces:
+            face = [Vec3(vertices[n]) for n in tup]
+            for subdiv_face in self.subdivide(face):
+                idx = 0 if any(pt.z == 0 for pt in subdiv_face) else 1
+                yield (subdiv_face, self.colors[idx])
+            # yield from self.subdivide(face)
 
-
-    def make_geomnode(self):
+    def _make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-        vdata.setNumRows(240)
+        vdata.setNumRows(self.num_rows)
         vertex = GeomVertexWriter(vdata, 'vertex')
-        # color = GeomVertexWriter(vdata, 'color')
+        color = GeomVertexWriter(vdata, 'color')
+
+        tris = GeomTriangles(Geom.UHStatic)
 
         i = 0
-        tris = GeomTriangles(Geom.UHStatic)
-        
-        for face in self.faces():
+        for face, rgba in self.faces():
             for pt in face:
                 vertex.addData3(pt.normalized())
+                color.addData4f(rgba)
 
             tris.addVertices(i, i + 1, i + 2)
             i += 3
-
-        # for vertices in self.geom_vertices():
-        #     tris.addVertices(*vertices)
 
         node = GeomNode('geomnode')
         geom = Geom(vdata)
@@ -271,7 +277,6 @@ class SphereGeomMaker:
         node.addGeom(geom)
 
         return node
-
 
 
 class TestShape(NodePath):
@@ -304,6 +309,7 @@ class Game(ShowBase):
         self.disableMouse()
         self.camera.setPos(10, 10, 10)  # 20, -20, 5
         self.camera.lookAt(0, 0, 0)
+       
         self.world = BulletWorld()
 
         # *******************************************
@@ -315,7 +321,6 @@ class Game(ShowBase):
         # icosahedron
 
         shape = TestShape()
-
         self.world.attachRigidBody(shape.node())
         shape.hprInterval(5, (360, 360, 360)).loop()
         self.taskMgr.add(self.update, 'update')

@@ -15,7 +15,7 @@ from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from gimmicks import Polyhedrons, Cones, CircularSaws
+from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
 
 
 class Status(Enum):
@@ -106,7 +106,7 @@ class ClimbStairs(ShowBase):
         self.camera.lookAt(
             self.look_x, self.look_y, self.look_z)
 
-        # self.setup_lights()
+        self.setup_lights()
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
@@ -125,10 +125,12 @@ class ClimbStairs(ShowBase):
         self.saws = CircularSaws(self.scene.stairs, self.world)
         self.saws_state = Status.DISAPPEAR
 
+        self.spheres = Spheres(self.scene.stairs, self.world)
+
         # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # *******************************************
 
         inputState.watchWithModifiers('forward', 'arrow_up')
@@ -161,12 +163,19 @@ class ClimbStairs(ShowBase):
         ambient_light.node().setColor(LColor(1, 1, 1, 1))
         self.render.setLight(ambient_light)
         directional_light = self.render.attachNewNode(DirectionalLight('directionalLight'))
-        directional_light.node().getLens().setFilmSize(200, 200)
-        directional_light.node().getLens().setNearFar(1, 100)
-        directional_light.node().setColor(LColor(1, 1, 1, 1))
-        directional_light.setPos(Point3(0, 0, 50))
-        # directional_light.node().setDirection(Vec3(0, 45, -45))
-        # directional_light.setPosHpr(Point3(0, 0, 30), Vec3(-30, -45, 0))
+        # directional_light.node().getLens().setFilmSize(200, 200)
+        # directional_light.node().getLens().setNearFar(1, 100)
+        directional_light.node().setColor(LColor(0.1, 0.1, 0.1, 1))
+        # directional_light.setPos(Point3(-10, 0, 50))
+        directional_light.node().setDirection(Vec3(1, 1, -2))
+
+        directional_light.setZ(6)
+        dlens = directional_light.node().getLens()
+        dlens.setFilmSize(41, 21)
+        dlens.setNearFar(50, 75)
+
+
+        # directional_light.setPosHpr(Point3(0, 0, 50), Vec3(0, 0, 0))
         directional_light.node().setShadowCaster(True)
         self.render.setShaderAuto()
         self.render.setLight(directional_light)

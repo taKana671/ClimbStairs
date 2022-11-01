@@ -1,12 +1,12 @@
 import random
 
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.bullet import BulletConvexHullShape
+from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import Vec3, Point3, LColor, BitMask32
 from panda3d.core import NodePath, PandaNode
 from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
 
-from geommaker import PolyhedronGeomMaker, PyramidGeomMaker
+from geommaker import PolyhedronGeomMaker, PyramidGeomMaker, SphereGeomMaker
 
 
 RED = LColor(1, 0, 0, 1)
@@ -47,6 +47,23 @@ class Polyhedrons(GimmickRoot):
     def apply_force(self, polh):
         force = Vec3(-1, 0, -1).normalized() * 5
         polh.node().applyCentralImpulse(force)
+
+
+class Spheres(GimmickRoot):
+
+    def __init__(self, stairs, world):
+        super().__init__()
+        self.world = world
+        self.stairs = stairs
+        self.sphere_maker = SphereGeomMaker()
+        self.make_sphere()
+
+    def make_sphere(self):
+        geomnode = self.sphere_maker.make_geomnode()
+        sphere = Sphere(geomnode, 'sphere')
+        sphere.reparentTo(self)
+        self.world.attachRigidBody(sphere.node())
+        sphere.setPos(5, 0, 10)
 
 
 class Cones(GimmickRoot):
@@ -258,3 +275,17 @@ class SlimPrism(NodePath):
         self.setPos(pos)
         self.node().setKinematic(True)
 
+
+class Sphere(NodePath):
+
+    def __init__(self, geom_node, node_name):
+        super().__init__(BulletRigidBodyNode(node_name))
+        np = self.attachNewNode(geom_node)
+        np.reparentTo(self)
+        end, tip = np.getTightBounds()
+        size = tip - end
+        self.node().addShape(BulletSphereShape(size.z / 2))
+        self.node().setMass(1)
+        self.node().setRestitution(0.7)
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
+        self.setScale(0.4)
