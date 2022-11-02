@@ -21,58 +21,82 @@ class GimmickRoot(NodePath):
         self.reparentTo(base.render)
 
 
-class Polyhedrons(GimmickRoot):
+class DropGimmicks(GimmickRoot):
 
     def __init__(self, stairs, world):
         super().__init__()
         self.world = world
         self.stairs = stairs
+
+    def drop(self, *args, **kwargs):
+        """Subclasses must override this method.
+        """
+        raise NotImplementedError()
+
+
+class Polyhedrons(DropGimmicks):
+
+    def __init__(self, stairs, world):
+        super().__init__(stairs, world)
         self.polh_maker = PolyhedronGeomMaker()
 
-    def start(self, node_name, chara_pos):
-        geomnode = self.polh_maker()
-        polh = Polyhedron(node_name, geomnode)
-        polh.reparentTo(self)
-        self.place(polh, chara_pos)
-        self.world.attachRigidBody(polh.node())
-        self.apply_force(polh)
-        return polh
-
-    def place(self, polh, chara_pos):
+    def get_pos(self, chara_pos):
         stair_center = self.stairs.center(self.stairs.top_stair)
         z = stair_center.z + 2
-        pos = Point3(stair_center.x, chara_pos.y, z)
-        polh.setPos(pos)
+        return Point3(stair_center.x, chara_pos.y, z)
 
-    def apply_force(self, polh):
+    def drop(self, idx, chara_pos):
+        geomnode = self.polh_maker()
+        polh = Polyhedron(geomnode, f'polhs_{idx}')
+        pos = self.get_pos(chara_pos)
+        polh.setPos(pos)
+        polh.reparentTo(self)
+        self.world.attachRigidBody(polh.node())
         force = Vec3(-1, 0, -1).normalized() * 5
         polh.node().applyCentralImpulse(force)
+        return polh
 
 
-class Spheres(GimmickRoot):
+class Spheres(DropGimmicks):
 
     def __init__(self, stairs, world):
-        super().__init__()
-        self.world = world
-        self.stairs = stairs
+        super().__init__(stairs, world)
+        self.scales = [0.2, 0.3, 0.4, 0.5]
         self.sphere_maker = SphereGeomMaker()
-        self.make_sphere()
 
-    def make_sphere(self):
+    def get_pos(self, chara_pos, sphere):
+        stair_center = self.stairs.center(self.stairs.top_stair)
+        end, tip = sphere.getTightBounds()
+        z = stair_center.z + (tip - end).z / 2
+        return Point3(stair_center.x, chara_pos.y, z)
+
+    def drop(self, idx, chara_pos):
         geomnode = self.sphere_maker.make_geomnode()
-        sphere = Sphere(geomnode, 'sphere')
+        scale = random.choice(self.scales)
+        sphere = Sphere(geomnode, f'spheres_{idx}', scale)
+        pos = self.get_pos(chara_pos, sphere)
+        self.setPos(pos)
         sphere.reparentTo(self)
+
         self.world.attachRigidBody(sphere.node())
-        sphere.setPos(5, 0, 10)
+        force = Vec3().left() * 10
+        sphere.node().applyCentralImpulse(force)
+        return sphere
 
 
-class Cones(GimmickRoot):
+class EmbeddedGimmiks(GimmickRoot):
 
     def __init__(self, stairs, world):
         super().__init__()
         self.stairs = stairs
         self.world = world
         self.stair = None
+
+
+class Cones(EmbeddedGimmiks):
+
+    def __init__(self, stairs, world):
+        super().__init__(stairs, world)
         self.cone_maker = PyramidGeomMaker()
         self.cones = [cone for cone in self.make_cones()]
 
@@ -127,13 +151,10 @@ class Cones(GimmickRoot):
             cone.detachNode()
 
 
-class CircularSaws(GimmickRoot):
+class CircularSaws(EmbeddedGimmiks):
 
     def __init__(self, stairs, world):
-        super().__init__()
-        self.stairs = stairs
-        self.world = world
-        self.stair = None
+        super().__init__(stairs, world)
         self.creater = PolyhedronGeomMaker()
         self.colors = (RED, BLUE, LIGHT_GRAY)
         self.saws = self.make_saws()
@@ -223,7 +244,7 @@ class CircularSaws(GimmickRoot):
 
 class Polyhedron(NodePath):
 
-    def __init__(self, name, geom_node):
+    def __init__(self, geom_node, name):
         super().__init__(BulletRigidBodyNode(name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
@@ -278,14 +299,14 @@ class SlimPrism(NodePath):
 
 class Sphere(NodePath):
 
-    def __init__(self, geom_node, node_name):
+    def __init__(self, geom_node, node_name, scale):
         super().__init__(BulletRigidBodyNode(node_name))
         np = self.attachNewNode(geom_node)
         np.reparentTo(self)
         end, tip = np.getTightBounds()
         size = tip - end
         self.node().addShape(BulletSphereShape(size.z / 2))
-        self.node().setMass(1)
+        self.node().setMass(scale * 10)
         self.node().setRestitution(0.7)
         self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
-        self.setScale(0.4)
+        self.setScale(scale)

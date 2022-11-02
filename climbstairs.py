@@ -106,8 +106,6 @@ class ClimbStairs(ShowBase):
         self.camera.lookAt(
             self.look_x, self.look_y, self.look_z)
 
-        self.setup_lights()
-
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
@@ -116,7 +114,9 @@ class ClimbStairs(ShowBase):
 
         self.holder = ObstaclesHolder(100)
         self.polhs = Polyhedrons(self.scene.stairs, self.world)
-        self.polhs_timer = 0
+        self.spheres = Spheres(self.scene.stairs, self.world)
+        self.drop_timer = 0
+        self.drop_polh = True
 
         self.cones = Cones(self.scene.stairs, self.world)
         self.cones_state = Status.DISAPPEAR
@@ -125,7 +125,6 @@ class ClimbStairs(ShowBase):
         self.saws = CircularSaws(self.scene.stairs, self.world)
         self.saws_state = Status.DISAPPEAR
 
-        self.spheres = Spheres(self.scene.stairs, self.world)
 
         # *******************************************
         # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -157,28 +156,6 @@ class ClimbStairs(ShowBase):
 
         self.accept('escape', sys.exit)
         self.taskMgr.add(self.update, 'update')
-
-    def setup_lights(self):
-        ambient_light = self.render.attachNewNode(AmbientLight('ambientLight'))
-        ambient_light.node().setColor(LColor(1, 1, 1, 1))
-        self.render.setLight(ambient_light)
-        directional_light = self.render.attachNewNode(DirectionalLight('directionalLight'))
-        # directional_light.node().getLens().setFilmSize(200, 200)
-        # directional_light.node().getLens().setNearFar(1, 100)
-        directional_light.node().setColor(LColor(0.1, 0.1, 0.1, 1))
-        # directional_light.setPos(Point3(-10, 0, 50))
-        directional_light.node().setDirection(Vec3(1, 1, -2))
-
-        directional_light.setZ(6)
-        dlens = directional_light.node().getLens()
-        dlens.setFilmSize(41, 21)
-        dlens.setNearFar(50, 75)
-
-
-        # directional_light.setPosHpr(Point3(0, 0, 50), Vec3(0, 0, 0))
-        directional_light.node().setShadowCaster(True)
-        self.render.setShaderAuto()
-        self.render.setLight(directional_light)
 
     def control_character(self, dt):
         speed = Vec3(0, 0, 0)
@@ -217,12 +194,16 @@ class ClimbStairs(ShowBase):
         # print(self.character.node().isOnGround())
         # print(self.character.stair)
 
-        if task.time > self.polhs_timer:
+        if task.time > self.drop_timer:
             if (idx := self.holder.empty_idx()) is not None:
                 pos = self.character.getPos()
-                obj = self.polhs.start(str(idx), pos)
+                if self.drop_polh:
+                    obj = self.polhs.drop(idx, pos)
+                else:
+                    obj = self.spheres.drop(idx, pos)
                 self.holder[idx] = obj
-            self.polhs_timer += 3
+                self.drop_polh = not self.drop_polh
+            self.drop_timer += 3
 
         if self.cones_state == Status.READY:
             if self.character.is_jump(self.cones.stair - 1):
@@ -262,15 +243,13 @@ class ClimbStairs(ShowBase):
             self.saws_state = Status.READY
             print('saw_trap', self.saws.stair)
         
-        
-        
-        
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
             if (name := con.getNode0().getName()) != 'snowman': # and not name.startswith('saw'):
                 # print([cone.getPos() for cone in self.cones.cones])
-                # print(name)
-                np = self.holder.pop(int(name))
+                print(name)
+                idx = name.split('_')[1]
+                np = self.holder.pop(int(idx))
                 self.world.remove(np.node())
                 np.removeNode()
 
@@ -278,7 +257,7 @@ class ClimbStairs(ShowBase):
         for con in result.getContacts():
             if not (name := con.getNode1().getName()).startswith('stairs'):
                 mp = con.getManifoldPoint()
-                print(name)
+                # print(name)
                 # print('B', mp.getPositionWorldOnB())
 
       
