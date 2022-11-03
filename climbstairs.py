@@ -103,14 +103,18 @@ class ClimbStairs(ShowBase):
         self.camera.setPos(-11, -16, 13)
         # self.camera.setPos(-11, -16, 20)
         # self.camera.lookAt(self.look_x, self.look_y, 10)
+        
         self.camera.lookAt(
             self.look_x, self.look_y, self.look_z)
+        # print('cameraHpr', self.camera.getHpr())
+        # self.camera.setHpr(-35, -18, 0)
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
 
         self.character = SnowMan(self.world)
+        self.before_pos = self.character.getPos()
 
         self.holder = ObstaclesHolder(100)
         self.polhs = Polyhedrons(self.scene.stairs, self.world)
@@ -187,12 +191,21 @@ class ClimbStairs(ShowBase):
         end = self.scene.stairs.top_stair
         return random.choice([n for n in range(start, end) if n != exp])
 
+    # def control_camera(self, dt):
+    #     if (diff := (self.before_pos - self.character.getPos()).x) != 0:
+    #         distance = diff #  * dt
+    #         x, y, z = self.camera.getPos()
+    #         self.camera.setPos(x - distance, y - distance, z + distance)
+    #         self.before_pos = self.character.getPos()
+
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character(dt)
         self.character.calc_climbed_steps()
         # print(self.character.node().isOnGround())
         # print(self.character.stair)
+
+        # self.control_camera(dt)
 
         if task.time > self.drop_timer:
             if (idx := self.holder.empty_idx()) is not None:

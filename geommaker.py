@@ -2,21 +2,17 @@ import math
 import random
 from enum import Enum
 
-from direct.showbase.ShowBase import ShowBase
-from direct.showbase.ShowBaseGlobal import globalClock
-from panda3d.bullet import BulletBoxShape, BulletPlaneShape, BulletSphereShape
-from panda3d.bullet import BulletRigidBodyNode
-from panda3d.core import Vec2, Vec3, LColor, Point3, BitMask32
+from panda3d.core import Vec3, LColor
 from panda3d.core import GeomVertexFormat, GeomVertexData
 from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
-from panda3d.core import GeomNode, NodePath, PandaNode, TransparencyAttrib
-from panda3d.core import CardMaker
+from panda3d.core import GeomNode
 
-from panda3d.bullet import BulletCylinderShape, BulletBoxShape, BulletConvexHullShape
+from panda3d.core import BitMask32
+from panda3d.core import NodePath
+from direct.showbase.ShowBase import ShowBase
+from direct.showbase.ShowBaseGlobal import globalClock
+from panda3d.bullet import BulletConvexHullShape
 from panda3d.bullet import BulletRigidBodyNode
-from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
-from panda3d.core import PandaNode, NodePath, TransformState
-from panda3d.core import Quat, Vec3, LColor, BitMask32, Point3
 from panda3d.bullet import BulletWorld, BulletDebugNode
 
 from polyhedrons_data import POLYHEDRONS
@@ -40,22 +36,30 @@ class Colors(Enum):
         return random.sample([m.value for m in cls], n)
 
 
-TEXCOORDS = [
-    (0.0, 1.0),
-    (0.0, 0.0),
-    (1.0, 0.0),
-    (1.0, 1.0),
-    (0.0, 1.0),
-]
+class GeomMaker:
+
+    def triangle(self, start):
+        return (start, start + 1, start + 2)
+
+    def square(self, start):
+        for x, y, z in [(0, 1, 3), (1, 2, 3)]:
+            yield (start + x, start + y, start + z)
+
+    def polygon(self, start, vertices_num):
+        for i in range(2, vertices_num):
+            if i == 2:
+                yield (start, start + i - 1, start + i)
+            else:
+                yield (start + i - 1, start, start + i)
 
 
-class PolyhedronGeomMaker:
+class PolyhedronGeomMaker(GeomMaker):
 
     def __init__(self):
         self.idx = 0
         self.polh_names = tuple(POLYHEDRONS.keys())
 
-    def __call__(self):
+    def next_geomnode(self):
         if self.idx >= len(self.polh_names):
             self.idx = 0
         polh_name = self.polh_names[self.idx]
@@ -88,23 +92,16 @@ class PolyhedronGeomMaker:
     def num_rows(self):
         return sum(len(face) for face in self.data['faces'])
 
-    def geom_vertices(self):
-        i = 0
+    def prim_vertices(self):
+        start = 0
         for face in self.data['faces']:
-            if (pts := len(face)) == 3:
-                yield (i, i + 1, i + 2)
-                i += pts
-            elif pts == 4:
-                for x, y, z in [(0, 1, 3), (1, 2, 3)]:
-                    yield (i + x, i + y, i + z)
-                i += pts
-            elif pts >= 5:
-                for j in range(2, pts):
-                    if j == 2:
-                        yield (i, i + j - 1, i + j)
-                    else:
-                        yield (i + j - 1, i, i + j)
-                i += pts
+            if (vertices_num := len(face)) == 3:
+                yield self.triangle(start)
+            elif vertices_num == 4:
+                yield from self.square(start)
+            elif vertices_num >= 5:
+                yield from self.polygon(start, vertices_num)
+            start += vertices_num
 
     def _make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()  # getV3n3c4
@@ -125,19 +122,19 @@ class PolyhedronGeomMaker:
                 # texcoord.addData2f(tex)
 
         node = GeomNode('geomnode')
-        tris = GeomTriangles(Geom.UHStatic)
+        prim = GeomTriangles(Geom.UHStatic)
 
-        for vertices in self.geom_vertices():
-            tris.addVertices(*vertices)
+        for vertices in self.prim_vertices():
+            prim.addVertices(*vertices)
 
         geom = Geom(vdata)
-        geom.addPrimitive(tris)
+        geom.addPrimitive(prim)
         node.addGeom(geom)
 
         return node
 
 
-class PyramidGeomMaker:
+class PyramidGeomMaker(GeomMaker):
 
     def __init__(self, length=2, cycle=12, radius=0.5):
         self.cone_length = length
@@ -163,19 +160,14 @@ class PyramidGeomMaker:
             else:
                 yield (point, bottom[i], bottom[i + 1])
 
-    def geom_vertices(self):
-        i = 0
+    def prim_vertices(self):
+        start = 0
         for face in self.faces:
-            if (pts := len(face)) == 3:
-                yield (i, i + 1, i + 2)
-                i += pts
+            if (vertices_num := len(face)) == 3:
+                yield self.triangle(start)
             else:
-                for j in range(2, pts):
-                    if j == 2:
-                        yield (i, i + j - 1, i + j)
-                    else:
-                        yield (i + j - 1, i, i + j)
-                i += pts
+                yield from self.polygon(start, vertices_num)
+            start += vertices_num
 
     def make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
@@ -188,19 +180,19 @@ class PyramidGeomMaker:
             for pt in face:
                 vertex.addData3(pt)
 
-        tris = GeomTriangles(Geom.UHStatic)
-        for vertices in self.geom_vertices():
-            tris.addVertices(*vertices)
+        prim = GeomTriangles(Geom.UHStatic)
+        for vertices in self.prim_vertices():
+            prim.addVertices(*vertices)
 
         node = GeomNode('geomnode')
         geom = Geom(vdata)
-        geom.addPrimitive(tris)
+        geom.addPrimitive(prim)
         node.addGeom(geom)
 
         return node
 
 
-class SphereGeomMaker:
+class SphereGeomMaker(GeomMaker):
 
     def __init__(self):
         self.data = POLYHEDRONS['icosahedron']
@@ -251,7 +243,6 @@ class SphereGeomMaker:
             for subdiv_face in self.subdivide(face):
                 idx = 0 if any(pt.z == 0 for pt in subdiv_face) else 1
                 yield (subdiv_face, self.colors[idx])
-            # yield from self.subdivide(face)
 
     def _make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
@@ -260,20 +251,21 @@ class SphereGeomMaker:
         vertex = GeomVertexWriter(vdata, 'vertex')
         color = GeomVertexWriter(vdata, 'color')
 
-        tris = GeomTriangles(Geom.UHStatic)
+        prim = GeomTriangles(Geom.UHStatic)
 
-        i = 0
+        start = 0
         for face, rgba in self.faces():
             for pt in face:
                 vertex.addData3(pt.normalized())
                 color.addData4f(rgba)
 
-            tris.addVertices(i, i + 1, i + 2)
-            i += 3
+            prim_vertices = self.triangle(start)
+            prim.addVertices(*prim_vertices)
+            start += 3
 
         node = GeomNode('geomnode')
         geom = Geom(vdata)
-        geom.addPrimitive(tris)
+        geom.addPrimitive(prim)
         node.addGeom(geom)
 
         return node
@@ -288,8 +280,11 @@ class TestShape(NodePath):
         maker = SphereGeomMaker()
         node = maker.make_geomnode()
 
+        # maker = PyramidGeomMaker()
+        # node = maker.make_geomnode()
+
         # creater = PolyhedronGeomMaker()
-        # node = creater.make_geomnode('icosahedron')
+        # node = creater.make_geomnode('triaugmented_hexagonal_prism')
 
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
@@ -309,7 +304,7 @@ class Game(ShowBase):
         self.disableMouse()
         self.camera.setPos(10, 10, 10)  # 20, -20, 5
         self.camera.lookAt(0, 0, 0)
-       
+
         self.world = BulletWorld()
 
         # *******************************************
@@ -322,7 +317,7 @@ class Game(ShowBase):
 
         shape = TestShape()
         self.world.attachRigidBody(shape.node())
-        shape.hprInterval(5, (360, 360, 360)).loop()
+        shape.hprInterval(8, (360, 720, 360)).loop()
         self.taskMgr.add(self.update, 'update')
 
     def update(self, task):

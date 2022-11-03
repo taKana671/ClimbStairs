@@ -46,7 +46,7 @@ class Polyhedrons(DropGimmicks):
         return Point3(stair_center.x, chara_pos.y, z)
 
     def drop(self, idx, chara_pos):
-        geomnode = self.polh_maker()
+        geomnode = self.polh_maker.next_geomnode()
         polh = Polyhedron(geomnode, f'polhs_{idx}')
         pos = self.get_pos(chara_pos)
         polh.setPos(pos)
