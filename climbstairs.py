@@ -20,12 +20,17 @@ from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
 
 class Status(Enum):
 
+    # for gimmicks
     READY = auto()
     APPEARING = auto()
     APPEAR = auto()
     DISAPPEARING = auto()
     DISAPPEAR = auto()
     MOVING = auto()
+    # for camera
+    STAY = auto()
+    GO_UP = auto()
+    GO_DOWN = auto()
 
 
 class ObstaclesHolder:
@@ -97,24 +102,21 @@ class ClimbStairs(ShowBase):
         super().__init__()
         self.disableMouse()
 
-        self.look_x = 5
-        self.look_y = 7
-        self.look_z = 4
         self.camera.setPos(-11, -16, 13)
         # self.camera.setPos(-11, -16, 20)
-        # self.camera.lookAt(self.look_x, self.look_y, 10)
-        
-        self.camera.lookAt(
-            self.look_x, self.look_y, self.look_z)
-        # print('cameraHpr', self.camera.getHpr())
-        # self.camera.setHpr(-35, -18, 0)
+        # self.camera.lookAt(5, 7, 10)
+
+        # self.camera.lookAt(5, 7, 4)
+        self.camera.setHpr(-35, -18, 0)
+        self.camera_stair = 0
+        self.camera_abs_distance = 0
+        self.camera_state = Status.STAY
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
 
         self.character = SnowMan(self.world)
-        self.before_pos = self.character.getPos()
 
         self.holder = ObstaclesHolder(100)
         self.polhs = Polyhedrons(self.scene.stairs, self.world)
@@ -158,6 +160,8 @@ class ClimbStairs(ShowBase):
         self.accept('d', self.move_camera, ['r', 'up'])
         self.accept('shift-d', self.move_camera, ['r', 'down'])
 
+        self.accept('f', self.move_camera, ['f', 'print'])
+
         self.accept('escape', sys.exit)
         self.taskMgr.add(self.update, 'update')
 
@@ -191,21 +195,39 @@ class ClimbStairs(ShowBase):
         end = self.scene.stairs.top_stair
         return random.choice([n for n in range(start, end) if n != exp])
 
-    # def control_camera(self, dt):
-    #     if (diff := (self.before_pos - self.character.getPos()).x) != 0:
-    #         distance = diff #  * dt
-    #         x, y, z = self.camera.getPos()
-    #         self.camera.setPos(x - distance, y - distance, z + distance)
-    #         self.before_pos = self.character.getPos()
+    def control_camera(self, dt):
+        distance = dt * 5
+
+        if self.camera_state == Status.GO_UP:
+            move = Vec3(distance, 0, distance)
+        else:
+            move = Vec3(-distance, 0, -distance)
+
+        pos = self.camera.getPos() + move
+        self.camera.setPos(pos)
+        self.camera_abs_distance -= distance
+
+        if self.camera_abs_distance < 0:
+            self.camera_state = Status.STAY
 
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character(dt)
         self.character.calc_climbed_steps()
-        # print(self.character.node().isOnGround())
-        # print(self.character.stair)
 
-        # self.control_camera(dt)
+        # When snowman is on floor, self.character.stair is -1.
+        if self.camera_state == Status.STAY:
+            if (diff := abs(self.character.stair) // 6 - self.camera_stair) != 0:
+                if diff > 0:
+                    self.camera_state = Status.GO_UP
+                else:
+                    self.camera_state = Status.GO_DOWN
+                # Move camera up and down every 6 stairs.
+                self.camera_abs_distance = abs(diff) * 6
+                self.camera_stair += diff
+
+        if self.camera_state != Status.STAY:
+            self.control_camera(dt)
 
         if task.time > self.drop_timer:
             if (idx := self.holder.empty_idx()) is not None:
@@ -255,7 +277,7 @@ class ClimbStairs(ShowBase):
             self.saws.stair = self.select_gimmick_stair(self.cones.stair)
             self.saws_state = Status.READY
             print('saw_trap', self.saws.stair)
-        
+
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
             name = con.getNode0().getName()
@@ -274,12 +296,6 @@ class ClimbStairs(ShowBase):
                 mp = con.getManifoldPoint()
                 # print(name)
                 # print('B', mp.getPositionWorldOnB())
-
-      
-
-        # self.character.calc_climbed_steps()
-        # print(self.character.node().isOnGround())
-        # print(self.character.climbed_steps)
 
         self.world.doPhysics(dt)
         return task.cont
@@ -321,6 +337,9 @@ class ClimbStairs(ShowBase):
             elif move == 'down':
                 self.look_z -= 1
             self.camera.lookAt(self.look_x, self.look_y, self.look_z)
+        elif direction == 'f':
+            print('pos', self.camera.getPos())
+            print('hpr', self.camera.getHpr())
 
         # elif direction == 'h':
         #     h = self.camera.getH()
