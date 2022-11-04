@@ -29,6 +29,7 @@ class Status(Enum):
     MOVING = auto()
     # for camera
     STAY = auto()
+    MOVABLE = auto()
     GO_UP = auto()
     GO_DOWN = auto()
 
@@ -74,25 +75,28 @@ class SnowMan(NodePath):
         self.setH(90)
         model.reparentTo(self)
         model.setPos(0, 0, -1)
-        self.stair = -1
+        self.stair = 0
+        self.before_pos = None
 
         world.attachCharacter(self.node())
 
     def calc_climbed_steps(self):
-        """Because the center z of snowman is about 0.95,
-           int(z) - 1 means index of the stair on which snowman is.
+        """Calculate the stair on which snowman is.
+           Because the gap between the steps is 1 and the z of snowman's center
+           is about 0.95, int(z) means the stair on which snowman is.
         """
         if self.node().isOnGround():
-            self.stair = int(self.getPos().z) - 1
+            self.stair = int(self.getPos().z)
 
     def is_jump(self, stair):
+        """Return True if snowman is jumping onto the next stair
+           in which gimmicks are embeded.
+           Args:
+                stair: index of stair in which gimmicks are embeded.
+                The index of stairs starts with 0, but snowman's stair starts with 1.
+        """
         if stair == self.stair and \
                 not self.node().isOnGround():
-            return True
-
-    def not_jump(self, stair):
-        if stair == self.stair and \
-                self.node().isOnGround():
             return True
 
 
@@ -101,14 +105,14 @@ class ClimbStairs(ShowBase):
     def __init__(self):
         super().__init__()
         self.disableMouse()
-
         self.camera.setPos(-11, -16, 13)
+
         # self.camera.setPos(-11, -16, 20)
         # self.camera.lookAt(5, 7, 10)
 
         # self.camera.lookAt(5, 7, 4)
         self.camera.setHpr(-35, -18, 0)
-        self.camera_stair = 0
+        self.camera_stair = 3
         self.camera_abs_distance = 0
         self.camera_state = Status.STAY
 
@@ -191,44 +195,62 @@ class ClimbStairs(ShowBase):
         self.character.node().setLinearMovement(speed, True)
 
     def select_gimmick_stair(self, exp=None):
-        start = self.character.stair + 1
+        # snowman's stair starts with 
+        start = self.character.stair
         end = self.scene.stairs.top_stair
         return random.choice([n for n in range(start, end) if n != exp])
 
-    def control_camera(self, dt):
-        distance = dt * 5
+    def control_camera(self, distance):
+        pos = self.camera.getPos()
+        self.camera.setPos(pos.x + distance, pos.y, pos.z + distance)
+    
+    
+    # def control_camera(self, dt):
+    #     distance = dt * 2
 
-        if self.camera_state == Status.GO_UP:
-            move = Vec3(distance, 0, distance)
-        else:
-            move = Vec3(-distance, 0, -distance)
+    #     if self.camera_state == Status.GO_UP:
+    #         move = Vec3(distance, 0, distance)
+    #     else:
+    #         move = Vec3(-distance, 0, -distance)
 
-        pos = self.camera.getPos() + move
-        self.camera.setPos(pos)
-        self.camera_abs_distance -= distance
+    #     pos = self.camera.getPos() + move
+    #     self.camera.setPos(pos)
+    #     self.camera_abs_distance -= distance
 
-        if self.camera_abs_distance < 0:
-            self.camera_state = Status.STAY
+    #     if self.camera_abs_distance < 0:
+    #         self.camera_state = Status.STAY
 
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character(dt)
         self.character.calc_climbed_steps()
 
-        # When snowman is on floor, self.character.stair is -1.
+        if self.scene.stairs.top_stair - self.character.stair < 14:
+            self.scene.stairs.increase()
+
+        # camera control
         if self.camera_state == Status.STAY:
-            if (diff := abs(self.character.stair) // 6 - self.camera_stair) != 0:
-                if diff > 0:
-                    self.camera_state = Status.GO_UP
-                else:
-                    self.camera_state = Status.GO_DOWN
-                # Move camera up and down every 6 stairs.
-                self.camera_abs_distance = abs(diff) * 6
-                self.camera_stair += diff
+            if self.character.getX() > 2:
+                self.character.before_pos = self.character.getPos()
+                self.camera_state = Status.MOVABLE
+        elif self.camera_state == Status.MOVABLE:
+            if self.character.getX() <= 2:
+                self.camera.setPos(-11, -16, 13)
+                self.camera_state = Status.STAY
+            elif (diff := self.character.getX() - self.character.before_pos.x) != 0:
+                self.control_camera(diff)
+                self.character.before_pos = self.character.getPos()
+        
 
-        if self.camera_state != Status.STAY:
-            self.control_camera(dt)
+        # if self.camera_state == Status.STAY:
+        #     if (diff := self.character.stair - self.camera_stair) != 0:
+        #         self.camera_state = Status.GO_UP if diff > 0 else Status.GO_DOWN
+        #         self.camera_abs_distance = abs(diff) * 1
+        #         self.camera_stair += diff
 
+        # if self.camera_state != Status.STAY:
+        #     self.control_camera(dt)
+        # gimmicks control
         if task.time > self.drop_timer:
             if (idx := self.holder.empty_idx()) is not None:
                 pos = self.character.getPos()
@@ -241,7 +263,7 @@ class ClimbStairs(ShowBase):
             self.drop_timer += 3
 
         if self.cones_state == Status.READY:
-            if self.character.is_jump(self.cones.stair - 1):
+            if self.character.is_jump(self.cones.stair):
                 self.cones.setup()
                 self.cones_state = Status.APPEARING
         elif self.cones_state == Status.APPEARING:
@@ -261,7 +283,7 @@ class ClimbStairs(ShowBase):
             print('cone_trap', self.cones.stair)
 
         if self.saws_state == Status.READY:
-            if self.character.is_jump(self.saws.stair - 1):
+            if self.character.is_jump(self.saws.stair):
                 self.saws.setup(self.character.getPos())
                 self.saws_state = Status.APPEARING
         elif self.saws_state == Status.APPEARING:
@@ -284,7 +306,7 @@ class ClimbStairs(ShowBase):
             if name.startswith('spheres') or name.startswith('polhs'):
             # if (name := con.getNode0().getName()) != 'snowman': # and not name.startswith('saw'):
                 # print([cone.getPos() for cone in self.cones.cones])
-                print(name)
+                # print(name)
                 idx = name.split('_')[1]
                 np = self.holder.pop(int(idx))
                 self.world.remove(np.node())

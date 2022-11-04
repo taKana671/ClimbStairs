@@ -41,7 +41,8 @@ class Stairs(NodePath):
     def increase(self):
         self.top_stair += 1
         name = f'stairs_{self.top_stair}'
-        scale = Vec3(1, 12, self.top_stair + 1)
+        scale = Vec3(1, 10, self.top_stair + 1)
+        # scale = Vec3(1, 12, self.top_stair + 1)
         pos = Point3(self.edge * self.top_stair, 0, self.edge / 2 * (self.top_stair + 1))
         stair = Cube(name, pos, scale, self.np_cube)
         stair.reparentTo(self)
@@ -100,7 +101,7 @@ class Floor(NodePath):
         start, end = stairs.right_end, stairs.left_end
 
         for y in range(start + 1, end, 2):
-            for x in range(start - 1, 0, 2):
+            for x in range(start - 1, end, 2):
                 g = model.attachNewNode(card.generate())
                 g.setP(-90)
                 g.setPos(Point3(x, y, 0))

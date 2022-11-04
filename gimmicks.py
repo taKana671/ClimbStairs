@@ -302,7 +302,9 @@ class Sphere(NodePath):
     def __init__(self, geom_node, node_name, scale):
         super().__init__(BulletRigidBodyNode(node_name))
         np = self.attachNewNode(geom_node)
+        np.setTwoSided(True)
         np.reparentTo(self)
+
         end, tip = np.getTightBounds()
         size = tip - end
         self.node().addShape(BulletSphereShape(size.z / 2))
