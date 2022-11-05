@@ -294,7 +294,7 @@ class TestShape(NodePath):
         self.node().addShape(shape)
         self.setCollideMask(BitMask32(1))
         self.setScale(1)
-        self.setColor(Colors.RED.value)
+        # self.setColor(Colors.RED.value)
 
 
 class Game(ShowBase):

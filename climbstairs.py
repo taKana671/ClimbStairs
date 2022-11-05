@@ -20,18 +20,12 @@ from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
 
 class Status(Enum):
 
-    # for gimmicks
     READY = auto()
     APPEARING = auto()
     APPEAR = auto()
     DISAPPEARING = auto()
     DISAPPEAR = auto()
     MOVING = auto()
-    # for camera
-    STAY = auto()
-    MOVABLE = auto()
-    GO_UP = auto()
-    GO_DOWN = auto()
 
 
 class ObstaclesHolder:
@@ -76,8 +70,7 @@ class SnowMan(NodePath):
         model.reparentTo(self)
         model.setPos(0, 0, -1)
         self.stair = 0
-        self.before_pos = None
-
+        self.stair_before = 0
         world.attachCharacter(self.node())
 
     def calc_climbed_steps(self):
@@ -86,7 +79,12 @@ class SnowMan(NodePath):
            is about 0.95, int(z) means the stair on which snowman is.
         """
         if self.node().isOnGround():
-            self.stair = int(self.getPos().z)
+            if (z := int(self.getPos().z)) != self.stair:
+                self.stair_before = self.stair
+                self.stair = z
+
+        # if self.node().isOnGround():
+        #     self.stair = int(self.getPos().z)
 
     def is_jump(self, stair):
         """Return True if snowman is jumping onto the next stair
@@ -112,9 +110,7 @@ class ClimbStairs(ShowBase):
 
         # self.camera.lookAt(5, 7, 4)
         self.camera.setHpr(-35, -18, 0)
-        self.camera_stair = 3
-        self.camera_abs_distance = 0
-        self.camera_state = Status.STAY
+        self.camera_before_x = 0
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
@@ -150,21 +146,21 @@ class ClimbStairs(ShowBase):
         inputState.watchWithModifiers('turn_right', 'q')
         inputState.watchWithModifiers('turn_left', 'w')
 
-        self.accept('z', self.move_camera, ['z', 'up'])
-        self.accept('shift-z', self.move_camera, ['z', 'down'])
-        self.accept('x', self.move_camera, ['x', 'up'])
-        self.accept('shiht-x', self.move_camera, ['x', 'down'])
-        self.accept('y', self.move_camera, ['y', 'up'])
-        self.accept('shift-y', self.move_camera, ['y', 'down'])
+        self.accept('z', self.test_move_camera, ['z', 'up'])
+        self.accept('shift-z', self.test_move_camera, ['z', 'down'])
+        self.accept('x', self.test_move_camera, ['x', 'up'])
+        self.accept('shiht-x', self.test_move_camera, ['x', 'down'])
+        self.accept('y', self.test_move_camera, ['y', 'up'])
+        self.accept('shift-y', self.test_move_camera, ['y', 'down'])
 
-        self.accept('a', self.move_camera, ['h', 'up'])
-        self.accept('shift-a', self.move_camera, ['h', 'down'])
-        self.accept('s', self.move_camera, ['p', 'up'])
-        self.accept('shift-s', self.move_camera, ['p', 'down'])
-        self.accept('d', self.move_camera, ['r', 'up'])
-        self.accept('shift-d', self.move_camera, ['r', 'down'])
+        self.accept('a', self.test_move_camera, ['h', 'up'])
+        self.accept('shift-a', self.test_move_camera, ['h', 'down'])
+        self.accept('s', self.test_move_camera, ['p', 'up'])
+        self.accept('shift-s', self.test_move_camera, ['p', 'down'])
+        self.accept('d', self.test_move_camera, ['r', 'up'])
+        self.accept('shift-d', self.test_move_camera, ['r', 'down'])
 
-        self.accept('f', self.move_camera, ['f', 'print'])
+        self.accept('f', self.test_move_camera, ['f', 'print'])
 
         self.accept('escape', sys.exit)
         self.taskMgr.add(self.update, 'update')
@@ -195,61 +191,38 @@ class ClimbStairs(ShowBase):
         self.character.node().setLinearMovement(speed, True)
 
     def select_gimmick_stair(self, exp=None):
-        # snowman's stair starts with 
         start = self.character.stair
         end = self.scene.stairs.top_stair
         return random.choice([n for n in range(start, end) if n != exp])
 
-    def control_camera(self, distance):
-        pos = self.camera.getPos()
-        self.camera.setPos(pos.x + distance, pos.y, pos.z + distance)
-    
-    
-    # def control_camera(self, dt):
-    #     distance = dt * 2
-
-    #     if self.camera_state == Status.GO_UP:
-    #         move = Vec3(distance, 0, distance)
-    #     else:
-    #         move = Vec3(-distance, 0, -distance)
-
-    #     pos = self.camera.getPos() + move
-    #     self.camera.setPos(pos)
-    #     self.camera_abs_distance -= distance
-
-    #     if self.camera_abs_distance < 0:
-    #         self.camera_state = Status.STAY
+    def move_camera(self):
+        """Change camera x and z with the movement of a game character.
+           The width and height of stairs increase by one like below.
+            idx      pos
+             0   LPoint3f(0, 0, 1)
+             1   LPoint3f(1, 0, 2)
+             2   LPoint3f(2, 0, 3)
+             3   LPoint3f(3, 0, 4)
+        """
+        if (x := self.character.getX()) <= 2:
+            self.camera_before_x = x
+        elif (distance := self.character.getX() - self.camera_before_x) != 0:
+            self.camera_before_x = self.character.getX()
+            pos = self.camera.getPos()
+            self.camera.setPos(pos.x + distance, pos.y, pos.z + distance)
 
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character(dt)
         self.character.calc_climbed_steps()
+        # print('now', self.character.stair, 'before', self.character.stair_before)
 
         if self.scene.stairs.top_stair - self.character.stair < 14:
             self.scene.stairs.increase()
 
-        # camera control
-        if self.camera_state == Status.STAY:
-            if self.character.getX() > 2:
-                self.character.before_pos = self.character.getPos()
-                self.camera_state = Status.MOVABLE
-        elif self.camera_state == Status.MOVABLE:
-            if self.character.getX() <= 2:
-                self.camera.setPos(-11, -16, 13)
-                self.camera_state = Status.STAY
-            elif (diff := self.character.getX() - self.character.before_pos.x) != 0:
-                self.control_camera(diff)
-                self.character.before_pos = self.character.getPos()
-        
+        # move camera with the game character.
+        self.move_camera()
 
-        # if self.camera_state == Status.STAY:
-        #     if (diff := self.character.stair - self.camera_stair) != 0:
-        #         self.camera_state = Status.GO_UP if diff > 0 else Status.GO_DOWN
-        #         self.camera_abs_distance = abs(diff) * 1
-        #         self.camera_stair += diff
-
-        # if self.camera_state != Status.STAY:
-        #     self.control_camera(dt)
         # gimmicks control
         if task.time > self.drop_timer:
             if (idx := self.holder.empty_idx()) is not None:
@@ -322,7 +295,7 @@ class ClimbStairs(ShowBase):
         self.world.doPhysics(dt)
         return task.cont
 
-    def move_camera(self, direction, move):
+    def test_move_camera(self, direction, move):
         if direction == 'z':
             z = self.camera.getZ()
             if move == 'up':
