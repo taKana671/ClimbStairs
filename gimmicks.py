@@ -28,6 +28,12 @@ class DropGimmicks(GimmickRoot):
         self.world = world
         self.stairs = stairs
 
+    def get_pos(self, chara_pos, drop_stair):
+        stair_center = self.stairs.center(drop_stair)
+        z = stair_center.z + 3
+
+        return Point3(stair_center.x, chara_pos.y, z)
+
     def drop(self, *args, **kwargs):
         """Subclasses must override this method.
         """
@@ -40,20 +46,14 @@ class Polyhedrons(DropGimmicks):
         super().__init__(stairs, world)
         self.polh_maker = PolyhedronGeomMaker()
 
-    def get_pos(self, chara_pos):
-        stair_center = self.stairs.center(self.stairs.top_stair)
-        z = stair_center.z + 2
-        return Point3(stair_center.x, chara_pos.y, z)
-
-    def drop(self, idx, chara_pos):
+    def drop(self, idx, chara_pos, drop_stair):
         geomnode = self.polh_maker.next_geomnode()
         polh = Polyhedron(geomnode, f'polhs_{idx}')
-        pos = self.get_pos(chara_pos)
+        pos = self.get_pos(chara_pos, drop_stair)
         polh.setPos(pos)
         polh.reparentTo(self)
         self.world.attachRigidBody(polh.node())
-        force = Vec3(-1, 0, -1).normalized() * 5
-        polh.node().applyCentralImpulse(force)
+
         return polh
 
 
@@ -61,26 +61,21 @@ class Spheres(DropGimmicks):
 
     def __init__(self, stairs, world):
         super().__init__(stairs, world)
-        self.scales = [0.2, 0.3, 0.4, 0.5]
+        self.scales = [0.3, 0.4, 0.5, 0.6]
         self.sphere_maker = SphereGeomMaker()
 
-    def get_pos(self, chara_pos, sphere):
-        stair_center = self.stairs.center(self.stairs.top_stair)
-        end, tip = sphere.getTightBounds()
-        z = stair_center.z + (tip - end).z / 2
-        return Point3(stair_center.x, chara_pos.y, z)
-
-    def drop(self, idx, chara_pos):
+    def drop(self, idx, chara_pos, drop_stair):
         geomnode = self.sphere_maker.make_geomnode()
         scale = random.choice(self.scales)
         sphere = Sphere(geomnode, f'spheres_{idx}', scale)
-        pos = self.get_pos(chara_pos, sphere)
+        pos = self.get_pos(chara_pos, drop_stair)
         self.setPos(pos)
         sphere.reparentTo(self)
 
         self.world.attachRigidBody(sphere.node())
         force = Vec3().left() * 10
         sphere.node().applyCentralImpulse(force)
+
         return sphere
 
 
