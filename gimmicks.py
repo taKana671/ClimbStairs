@@ -1,10 +1,13 @@
 import random
+from enum import Enum, auto
 
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import Vec3, Point3, LColor, BitMask32
 from panda3d.core import NodePath, PandaNode
 from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
+from direct.showbase.ShowBaseGlobal import globalClock
+
 
 from geommaker import PolyhedronGeomMaker, PyramidGeomMaker, SphereGeomMaker
 
@@ -23,10 +26,11 @@ class GimmickRoot(NodePath):
 
 class DropGimmicks(GimmickRoot):
 
-    def __init__(self, stairs, world):
+    def __init__(self, stairs, world, holder):
         super().__init__()
         self.world = world
         self.stairs = stairs
+        self.holder = holder
 
     def get_pos(self, chara_pos, drop_stair):
         stair_center = self.stairs.center(drop_stair)
@@ -34,49 +38,86 @@ class DropGimmicks(GimmickRoot):
 
         return Point3(stair_center.x, chara_pos.y, z)
 
-    def drop(self, *args, **kwargs):
-        """Subclasses must override this method.
-        """
-        raise NotImplementedError()
+    def drop(self, snowman):
+        if (idx := self.holder.empty_idx()) is not None:
+            drop_stair = snowman.stair + 11
+            stair_center = self.stairs.center(drop_stair) 
+            pos = Point3(stair_center.x, snowman.getY(), stair_center.z + 3)
+
+            np = self.make_np(idx)
+            np.setPos(pos)
+            np.reparentTo(self)
+            self.holder[idx] = np
+
+            self.world.attachRigidBody(np.node())
+            self.apply_force(np)
+
+    # def drop(self, *args, **kwargs):
+    #     """Subclasses must override this method.
+    #     """
+    #     raise NotImplementedError()
 
 
 class Polyhedrons(DropGimmicks):
 
-    def __init__(self, stairs, world):
-        super().__init__(stairs, world)
+    def __init__(self, stairs, world, holder):
+        super().__init__(stairs, world, holder)
         self.polh_maker = PolyhedronGeomMaker()
 
-    def drop(self, idx, chara_pos, drop_stair):
+    def make_np(self, idx):
         geomnode = self.polh_maker.next_geomnode()
         polh = Polyhedron(geomnode, f'polhs_{idx}')
-        pos = self.get_pos(chara_pos, drop_stair)
-        polh.setPos(pos)
-        polh.reparentTo(self)
-        self.world.attachRigidBody(polh.node())
-
+        # pos = self.get_pos(chara_pos, drop_stair)
         return polh
+        # polh.setPos(pos)
+        # polh.reparentTo(self)
+        # self.world.attachRigidBody(polh.node())
+
+    def apply_force(self, np):
+        force = Vec3(-1, 0, -1)
+        apply_pt = np.getPos() + Vec3(0, 0, 0.2)
+        # polh.node().applyCentralImpulse(force)
+        np.node().applyImpulse(force, apply_pt)
 
 
 class Spheres(DropGimmicks):
 
-    def __init__(self, stairs, world):
-        super().__init__(stairs, world)
+    def __init__(self, stairs, world, holder):
+        super().__init__(stairs, world, holder)
         self.scales = [0.3, 0.4, 0.5, 0.6]
         self.sphere_maker = SphereGeomMaker()
 
-    def drop(self, idx, chara_pos, drop_stair):
+    def make_np(self, idx):
+    # def drop(self, idx, chara_pos, drop_stair):
         geomnode = self.sphere_maker.make_geomnode()
         scale = random.choice(self.scales)
         sphere = Sphere(geomnode, f'spheres_{idx}', scale)
-        pos = self.get_pos(chara_pos, drop_stair)
-        self.setPos(pos)
-        sphere.reparentTo(self)
-
-        self.world.attachRigidBody(sphere.node())
-        force = Vec3().left() * 10
-        sphere.node().applyCentralImpulse(force)
-
+        # pos = self.get_pos(chara_pos, drop_stair)
+        # self.setPos(pos)
+        # sphere.reparentTo(self)
         return sphere
+        # self.world.attachRigidBody(sphere.node())
+        # force = Vec3().left()  #* 10
+        # force = Vec3(-1, 0, -1)
+        # sphere.node().applyCentralImpulse(force)
+
+    def apply_force(self, np):
+        force = Vec3().left()
+        apply_pt = np.getPos() + Vec3(0, 0, 0.3)
+    
+        # polh.node().applyCentralImpulse(force)
+        np.node().applyImpulse(force, apply_pt)
+        # return sphere
+
+
+class State(Enum):
+
+    READY = auto()
+    APPEAR = auto()
+    DISAPPEAR = auto()
+    MOVE = auto()
+    STAY = auto()
+    WAIT = auto()
 
 
 class EmbeddedGimmiks(GimmickRoot):
@@ -86,6 +127,35 @@ class EmbeddedGimmiks(GimmickRoot):
         self.stairs = stairs
         self.world = world
         self.stair = None
+        self.state = State.WAIT
+
+    def decide_stair(self, start, *trick_stairs):
+        """Decide a stair in which to make a gimmick. The stair is between
+           start and the 10th from the start.
+        """
+        self.stair = random.choice(
+            [n for n in range(start, start + 10) if n not in trick_stairs]
+        )
+        self.state = State.READY
+        print(self.__class__.__name__, self.stair)
+
+    def run(self, dt, snowman, *trick_stairs):
+        if self.state == State.READY:
+            # If snowman goes down, reset the stair.
+            if self.stair > snowman.stair + 10:
+                self.state = State.WAIT
+            elif snowman.is_jump(self.stair):
+                self.setup(snowman.getPos())
+        elif self.state == State.APPEAR:
+            self.appear(dt)
+        elif self.state == State.STAY:
+            self.stay()
+        elif self.state == State.MOVE:
+            self.move(dt)
+        elif self.state == State.DISAPPEAR:
+            self.disappear(dt)
+        elif self.state == State.WAIT:
+            self.decide_stair(snowman.stair, *trick_stairs)
 
 
 class Cones(EmbeddedGimmiks):
@@ -94,6 +164,7 @@ class Cones(EmbeddedGimmiks):
         super().__init__(stairs, world)
         self.cone_maker = PyramidGeomMaker()
         self.cones = [cone for cone in self.make_cones()]
+        self.timer = 0
 
     def make_cones(self):
         n = self.stairs.left_end - self.stairs.right_end
@@ -112,7 +183,7 @@ class Cones(EmbeddedGimmiks):
         z = stair_center.z + 0.5
         return Point3(x, y, z)
 
-    def setup(self, exc=None):
+    def setup(self, chara_pos):
         stair_center = self.stairs.center(self.stair)
         self.start_x = stair_center.x + 2
         self.stop_x = stair_center.x + 0.8
@@ -122,6 +193,8 @@ class Cones(EmbeddedGimmiks):
             cone.setPos(pos)
             cone.reparentTo(self)
 
+        self.state = State.APPEAR
+
     def appear(self, dt):
         distance = dt
         for cone in self.cones:
@@ -129,7 +202,13 @@ class Cones(EmbeddedGimmiks):
             cone.setX(x)
 
         if x < self.stop_x:
-            return True
+            self.timer = globalClock.getFrameCount() + 30
+            self.state = State.STAY
+
+    def stay(self):
+        if globalClock.getFrameCount() > self.timer:
+            self.timer = 0
+            self.state = State.DISAPPEAR
 
     def disappear(self, dt):
         distance = dt
@@ -139,7 +218,7 @@ class Cones(EmbeddedGimmiks):
 
         if x > self.start_x:
             self.finish()
-            return True
+            self.state = State.WAIT
 
     def finish(self):
         for cone in self.cones:
@@ -197,6 +276,8 @@ class CircularSaws(EmbeddedGimmiks):
             saw.setPos(pos)
             saw.reparentTo(self)
 
+        self.state = State.APPEAR
+
     def appear(self, dt):
         distance = dt * 2
         for saw in self.saws.values():
@@ -204,7 +285,7 @@ class CircularSaws(EmbeddedGimmiks):
             saw.setZ(z)
 
         if z > self.stop_z:
-            return True
+            self.state = State.MOVE
 
     def move(self, dt):
         distance = dt * 2
@@ -219,7 +300,7 @@ class CircularSaws(EmbeddedGimmiks):
             saw.np.setH(saw.np.getH() + angle)
 
         if self.saws['left'].getY() < self.stairs.right_end + 0.5:
-            return True
+            self.state = State.DISAPPEAR
 
     def disappear(self, dt):
         distance = dt * 2
@@ -230,7 +311,7 @@ class CircularSaws(EmbeddedGimmiks):
 
         if z < self.start_z:
             self.finish()
-            return True
+            self.state = State.WAIT
 
     def finish(self):
         for saw in self.saws.values():

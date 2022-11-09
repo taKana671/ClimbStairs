@@ -18,17 +18,6 @@ from scene import Scene
 from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
 
 
-class Status(Enum):
-
-    READY = auto()
-    APPEARING = auto()
-    APPEAR = auto()
-    DISAPPEARING = auto()
-    DISAPPEAR = auto()
-    MOVING = auto()
-
-
-
 class ObstaclesHolder:
 
     def __init__(self, length):
@@ -117,20 +106,16 @@ class ClimbStairs(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
 
-        self.character = SnowMan(self.world)
+        self.snowman = SnowMan(self.world)
 
         self.holder = ObstaclesHolder(100)
-        self.polhs = Polyhedrons(self.scene.stairs, self.world)
-        self.spheres = Spheres(self.scene.stairs, self.world)
+        self.polhs = Polyhedrons(self.scene.stairs, self.world, self.holder)
+        self.spheres = Spheres(self.scene.stairs, self.world, self.holder)
         self.drop_timer = 0
         self.drop_polh = True
 
         self.cones = Cones(self.scene.stairs, self.world)
-        self.cones.state = Status.DISAPPEAR
-        self.cones_timer = 0
-
         self.saws = CircularSaws(self.scene.stairs, self.world)
-        self.saws.state = Status.DISAPPEAR
 
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -167,9 +152,9 @@ class ClimbStairs(ShowBase):
         self.taskMgr.add(self.update, 'update')
 
     def do_jump(self):
-        self.character.node().setMaxJumpHeight(2.0)  # 5.0
-        self.character.node().setJumpSpeed(5.0)      # 8.0
-        self.character.node().doJump()
+        self.snowman.node().setMaxJumpHeight(2.0)  # 5.0
+        self.snowman.node().setJumpSpeed(5.0)      # 8.0
+        self.snowman.node().doJump()
 
     def control_character(self):
         speed = Vec3(0, 0, 0)
@@ -188,63 +173,15 @@ class ClimbStairs(ShowBase):
         elif inputState.isSet('turn_left'):
             omega = 120
 
-        self.character.node().setAngularMovement(omega)
-        self.character.node().setLinearMovement(speed, True)
-
-    def decide_stair(self, *gimmicks):
-        """Decide a stair in which to make a gimmick. The stair is between
-           a step where snowman is and the 10th from the step.
-           If snowman goes down, reset the stair.
-        """
-        start = self.character.stair
-        end = start + 10
-
-        for gimmick in gimmicks:
-            if gimmick.state == Status.DISAPPEAR or \
-                    (gimmick.state == Status.READY and gimmick.stair > end):
-                stairs = [g.stair for g in gimmicks if g != gimmick]
-                gimmick.stair = random.choice([n for n in range(start, end) if n not in stairs])
-                gimmick.state = Status.READY
-                print('cones', self.cones.stair, 'saws', self.saws.stair)
-
-    def control_saws(self, dt):
-        if self.saws.state == Status.READY:
-            if self.character.is_jump(self.saws.stair):
-                self.saws.setup(self.character.getPos())
-                self.saws.state = Status.APPEARING
-        elif self.saws.state == Status.APPEARING:
-            if self.saws.appear(dt):
-                self.saws.state = Status.MOVING
-        elif self.saws.state == Status.MOVING:
-            if self.saws.move(dt):
-                self.saws.state = Status.DISAPPEARING
-        elif self.saws.state == Status.DISAPPEARING:
-            if self.saws.disappear(dt):
-                self.saws.state = Status.DISAPPEAR
-
-    def control_cones(self, dt):
-        if self.cones.state == Status.READY:
-            if self.character.is_jump(self.cones.stair):
-                self.cones.setup()
-                self.cones.state = Status.APPEARING
-        elif self.cones.state == Status.APPEARING:
-            if self.cones.appear(dt):
-                self.cones_timer = globalClock.getFrameCount() + 20
-                self.cones.state = Status.APPEAR
-        elif self.cones.state == Status.APPEAR:
-            if globalClock.getFrameCount() > self.cones_timer:
-                self.cones_timer = 0
-                self.cones.state = Status.DISAPPEARING
-        elif self.cones.state == Status.DISAPPEARING:
-            if self.cones.disappear(dt):
-                self.cones.state = Status.DISAPPEAR
+        self.snowman.node().setAngularMovement(omega)
+        self.snowman.node().setLinearMovement(speed, True)
 
     def drop_gimmicks(self, drop_polh):
         """Drop polyhedron and sphere alternately.
         """
         if (idx := self.holder.empty_idx()) is not None:
-            pos = self.character.getPos()
-            drop_stair = self.character.stair + 11
+            pos = self.snowman.getPos()
+            drop_stair = self.snowman.stair + 11
 
             if drop_polh:
                 obj = self.polhs.drop(idx, pos, drop_stair)
@@ -264,36 +201,43 @@ class ClimbStairs(ShowBase):
              2   LPoint3f(2, 0, 3)
              3   LPoint3f(3, 0, 4)
         """
-        if (x := self.character.getX()) <= 2:
+        if (x := self.snowman.getX()) <= 2:
             self.camera_before_x = x
-        elif (distance := self.character.getX() - self.camera_before_x) != 0:
-            self.camera_before_x = self.character.getX()
+        elif (distance := self.snowman.getX() - self.camera_before_x) != 0:
+            self.camera_before_x = self.snowman.getX()
             pos = self.camera.getPos()
             self.camera.setPos(pos.x + distance, pos.y, pos.z + distance)
 
     def update(self, task):
         dt = globalClock.getDt()
         self.control_character()
-        self.character.calc_climbed_steps()
-        # print('now', self.character.stair, 'before', self.character.stair_before)
+        self.snowman.calc_climbed_steps()
+        # print('now', self.snowman.stair, 'before', self.snowman.stair_before)
 
         # increase stair
-        if self.scene.stairs.top_stair - self.character.stair < 14:
+        if self.scene.stairs.top_stair - self.snowman.stair < 14:
             self.scene.stairs.increase()
 
         # move camera with the game character.
         self.move_camera()
 
-        # drop gimmicks
+        # control gimmicks
         if task.time > self.drop_timer:
-            if self.drop_gimmicks(self.drop_polh):
-                self.drop_polh = not self.drop_polh
+            if self.drop_polh:
+                self.polhs.drop(self.snowman)
+            else:
+                self.spheres.drop(self.snowman)
+            self.drop_polh = not self.drop_polh
             self.drop_timer += 3
+        
+        
+        # if task.time > self.drop_timer:
+        #     if self.drop_gimmicks(self.drop_polh):
+        #         self.drop_polh = not self.drop_polh
+        #     self.drop_timer += 3
 
-        # Decide a stair in which to make cones and saws, and control them.
-        self.decide_stair(self.cones, self.saws)
-        self.control_cones(dt)
-        self.control_saws(dt)
+        self.cones.run(dt, self.snowman, self.saws.stair)
+        self.saws.run(dt, self.snowman, self.cones.stair)
 
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
@@ -307,7 +251,7 @@ class ClimbStairs(ShowBase):
                 self.world.remove(np.node())
                 np.removeNode()
 
-        result = self.world.contactTest(self.character.node())
+        result = self.world.contactTest(self.snowman.node())
         for con in result.getContacts():
             if not (name := con.getNode1().getName()).startswith('stairs'):
                 mp = con.getManifoldPoint()
