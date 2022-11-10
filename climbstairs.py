@@ -18,32 +18,6 @@ from scene import Scene
 from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
 
 
-class ObstaclesHolder:
-
-    def __init__(self, length):
-        self.data = [None for _ in range(length)]
-
-    def __len__(self):
-        return sum(1 for item in self.data if item is not None)
-
-    def __getitem__(self, key):
-        return self.data[key]
-
-    def __setitem__(self, key, value):
-        self.data[key] = value
-
-    def empty_idx(self):
-        for i, item in enumerate(self.data):
-            if not item:
-                return i
-        return None
-
-    def pop(self, key):
-        item = self.data[key]
-        self.data[key] = None
-        return item
-
-
 class SnowMan(NodePath):
 
     def __init__(self, world):
@@ -108,14 +82,12 @@ class ClimbStairs(ShowBase):
 
         self.snowman = SnowMan(self.world)
 
-        self.holder = ObstaclesHolder(100)
-        self.polhs = Polyhedrons(self.scene.stairs, self.world, self.holder)
-        self.spheres = Spheres(self.scene.stairs, self.world, self.holder)
-        self.drop_timer = 0
-        self.drop_polh = True
-
         self.cones = Cones(self.scene.stairs, self.world)
         self.saws = CircularSaws(self.scene.stairs, self.world)
+        self.polhs = Polyhedrons(self.scene.stairs, self.world, 50)
+        self.spheres = Spheres(self.scene.stairs, self.world, 50)
+        self.timer = 0
+        self.toggle = True
 
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -176,22 +148,6 @@ class ClimbStairs(ShowBase):
         self.snowman.node().setAngularMovement(omega)
         self.snowman.node().setLinearMovement(speed, True)
 
-    def drop_gimmicks(self, drop_polh):
-        """Drop polyhedron and sphere alternately.
-        """
-        if (idx := self.holder.empty_idx()) is not None:
-            pos = self.snowman.getPos()
-            drop_stair = self.snowman.stair + 11
-
-            if drop_polh:
-                obj = self.polhs.drop(idx, pos, drop_stair)
-            else:
-                obj = self.spheres.drop(idx, pos, drop_stair)
-
-            self.holder[idx] = obj
-
-            return True
-
     def move_camera(self):
         """Change camera x and z with the movement of snowman.
            The width and height of stairs increase by one like below.
@@ -217,46 +173,34 @@ class ClimbStairs(ShowBase):
         # increase stair
         if self.scene.stairs.top_stair - self.snowman.stair < 14:
             self.scene.stairs.increase()
-
-        # move camera with the game character.
+        # move camera with the snowman.
         self.move_camera()
 
         # control gimmicks
-        if task.time > self.drop_timer:
-            if self.drop_polh:
-                self.polhs.drop(self.snowman)
+        if task.time > self.timer:
+            if self.toggle:
+                self.polhs.drop(self.snowman.stair, self.snowman.getPos())
             else:
-                self.spheres.drop(self.snowman)
-            self.drop_polh = not self.drop_polh
-            self.drop_timer += 3
-        
-        
-        # if task.time > self.drop_timer:
-        #     if self.drop_gimmicks(self.drop_polh):
-        #         self.drop_polh = not self.drop_polh
-        #     self.drop_timer += 3
+                self.spheres.drop(self.snowman.stair, self.snowman.getPos())
+            self.toggle = not self.toggle
+            self.timer += 3
 
         self.cones.run(dt, self.snowman, self.saws.stair)
         self.saws.run(dt, self.snowman, self.cones.stair)
 
+        # remove polyhedrons and spheres on the floor.
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
-            name = con.getNode0().getName()
-            if name.startswith('spheres') or name.startswith('polhs'):
-            # if (name := con.getNode0().getName()) != 'snowman': # and not name.startswith('saw'):
-                # print([cone.getPos() for cone in self.cones.cones])
-                # print(name)
-                idx = name.split('_')[1]
-                np = self.holder.pop(int(idx))
-                self.world.remove(np.node())
-                np.removeNode()
+            if (name := con.getNode0().getName()).startswith('polhs'):
+                self.polhs.delete(name)
+            elif name.startswith('spheres'):
+                self.spheres.delete(name)
 
         result = self.world.contactTest(self.snowman.node())
         for con in result.getContacts():
-            if not (name := con.getNode1().getName()).startswith('stairs'):
-                mp = con.getManifoldPoint()
-                # print(name)
-                # print('B', mp.getPositionWorldOnB())
+            name = con.getNode1().getName()
+            if name.split('_')[0] in {'spheres', 'cones', 'saws', 'polhs'}:
+                print('collision', name)
 
         self.world.doPhysics(dt)
         return task.cont

@@ -1,4 +1,6 @@
 import random
+
+from collections import UserList
 from enum import Enum, auto
 
 from panda3d.bullet import BulletRigidBodyNode
@@ -17,6 +19,29 @@ BLUE = LColor(0, 0, 1, 1)
 LIGHT_GRAY = LColor(0.75, 0.75, 0.75, 1)
 
 
+class Holder(UserList):
+
+    def __init__(self, data):
+        super().__init__(data)
+
+    def id(self):
+        for i, item in enumerate(self.data):
+            if not item:
+                return i
+        return None
+
+    def pop(self, i):
+        item = self.data[i]
+        self.data[i] = None
+        return item
+
+    def find_space(self):
+        for i, item in enumerate(self.data):
+            if not item:
+                return i
+        return None
+
+
 class GimmickRoot(NodePath):
 
     def __init__(self):
@@ -26,88 +51,69 @@ class GimmickRoot(NodePath):
 
 class DropGimmicks(GimmickRoot):
 
-    def __init__(self, stairs, world, holder):
+    def __init__(self, stairs, world, capacity):
         super().__init__()
         self.world = world
         self.stairs = stairs
-        self.holder = holder
+        self.holder = Holder([None for _ in range(capacity)])
 
-    def get_pos(self, chara_pos, drop_stair):
-        stair_center = self.stairs.center(drop_stair)
-        z = stair_center.z + 3
+    def drop(self, snowman_stair, snowman_pos):
+        if (index := self.holder.find_space()) is not None:
+            drop_stair = snowman_stair + 11
+            stair_center = self.stairs.center(drop_stair)
 
-        return Point3(stair_center.x, chara_pos.y, z)
+            pos = Point3(stair_center.x, snowman_pos.y, stair_center.z + 3)
+            self.drop_start(index, pos)
 
-    def drop(self, snowman):
-        if (idx := self.holder.empty_idx()) is not None:
-            drop_stair = snowman.stair + 11
-            stair_center = self.stairs.center(drop_stair) 
-            pos = Point3(stair_center.x, snowman.getY(), stair_center.z + 3)
+    def delete(self, name):
+        index = name.split('_')[1]
+        np = self.holder.pop(int(index))
+        self.world.remove(np.node())
+        np.removeNode()
 
-            np = self.make_np(idx)
-            np.setPos(pos)
-            np.reparentTo(self)
-            self.holder[idx] = np
-
-            self.world.attachRigidBody(np.node())
-            self.apply_force(np)
-
-    # def drop(self, *args, **kwargs):
-    #     """Subclasses must override this method.
-    #     """
-    #     raise NotImplementedError()
+    def drop_start(self, index, pos):
+        """Override in subclasses.
+        """
+        raise NotImplementedError()
 
 
 class Polyhedrons(DropGimmicks):
 
-    def __init__(self, stairs, world, holder):
-        super().__init__(stairs, world, holder)
+    def __init__(self, stairs, world, capacity):
+        super().__init__(stairs, world, capacity)
         self.polh_maker = PolyhedronGeomMaker()
 
-    def make_np(self, idx):
+    def drop_start(self, index, pos):
         geomnode = self.polh_maker.next_geomnode()
-        polh = Polyhedron(geomnode, f'polhs_{idx}')
-        # pos = self.get_pos(chara_pos, drop_stair)
-        return polh
-        # polh.setPos(pos)
-        # polh.reparentTo(self)
-        # self.world.attachRigidBody(polh.node())
+        polh = Polyhedron(geomnode, f'polhs_{index}')
+        polh.setPos(pos)
+        polh.reparentTo(self)
+        self.holder[index] = polh
 
-    def apply_force(self, np):
+        self.world.attachRigidBody(polh.node())
         force = Vec3(-1, 0, -1)
-        apply_pt = np.getPos() + Vec3(0, 0, 0.2)
-        # polh.node().applyCentralImpulse(force)
-        np.node().applyImpulse(force, apply_pt)
+        polh.node().applyCentralImpulse(force)
 
 
 class Spheres(DropGimmicks):
 
-    def __init__(self, stairs, world, holder):
-        super().__init__(stairs, world, holder)
+    def __init__(self, stairs, world, capacity):
+        super().__init__(stairs, world, capacity)
         self.scales = [0.3, 0.4, 0.5, 0.6]
         self.sphere_maker = SphereGeomMaker()
 
-    def make_np(self, idx):
-    # def drop(self, idx, chara_pos, drop_stair):
+    def drop_start(self, index, pos):
         geomnode = self.sphere_maker.make_geomnode()
         scale = random.choice(self.scales)
-        sphere = Sphere(geomnode, f'spheres_{idx}', scale)
-        # pos = self.get_pos(chara_pos, drop_stair)
-        # self.setPos(pos)
-        # sphere.reparentTo(self)
-        return sphere
-        # self.world.attachRigidBody(sphere.node())
-        # force = Vec3().left()  #* 10
-        # force = Vec3(-1, 0, -1)
-        # sphere.node().applyCentralImpulse(force)
+        sphere = Sphere(geomnode, f'spheres_{index}', scale)
+        self.setPos(pos)
+        sphere.reparentTo(self)
+        self.holder[index] = sphere
 
-    def apply_force(self, np):
-        force = Vec3().left()
-        apply_pt = np.getPos() + Vec3(0, 0, 0.3)
-    
-        # polh.node().applyCentralImpulse(force)
-        np.node().applyImpulse(force, apply_pt)
-        # return sphere
+        self.world.attachRigidBody(sphere.node())
+        force = Vec3(-1, 0, -1) * 2
+        apply_pt = pos + Vec3(0, 0, 0.3)
+        sphere.node().applyImpulse(force, apply_pt)
 
 
 class State(Enum):

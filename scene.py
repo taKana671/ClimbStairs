@@ -132,8 +132,8 @@ class Scene(NodePath):
 
         self.stairs = Stairs(self, world)
         self.floor = Floor(self)
-        self.left_wall = Wall(self, 'left_wall', Vec3.back(), self.stairs.left_end)
-        self.right_wall = Wall(self, 'right_wall', Vec3.forward(), self.stairs.right_end)
+        self.left_wall = Wall(self, 'wall_left', Vec3.back(), self.stairs.left_end)
+        self.right_wall = Wall(self, 'wall_right', Vec3.forward(), self.stairs.right_end)
 
         world.attachRigidBody(self.floor.node())
         world.attachRigidBody(self.left_wall.node())
