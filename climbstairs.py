@@ -7,7 +7,7 @@ from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletRigidBodyNode, BulletCharacterControllerNode, BulletDebugNode
 from panda3d.bullet import BulletHelper
-from panda3d.core import Vec2, Vec3, LColor, BitMask32, Point3
+from panda3d.core import Vec2, Vec3, LColor, BitMask32, Point3, Quat
 from panda3d.core import NodePath, PandaNode, TransformState
 from panda3d.core import AmbientLight, DirectionalLight
 from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
@@ -22,8 +22,8 @@ class SnowMan(NodePath):
 
     def __init__(self, world):
         model = base.loader.loadModel('models/snowman/snowman')
-        model.setScale(0.3)
-        height, radius = 2.0, 0.5
+        model.setTransform(TransformState.makePos(Vec3(0, 0, -3)))
+        height, radius = 7.0, 1.5
         shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'snowman'))
         self.reparentTo(base.render)
@@ -31,11 +31,13 @@ class SnowMan(NodePath):
         # self.setCollideMask(BitMask32.allOn())
         self.setPos(-1, 2, 0)
         self.setH(90)
+        world.attachCharacter(self.node())
         model.reparentTo(self)
-        model.setPos(0, 0, -1)
+        self.setScale(0.3)
+
         self.stair = 0
         self.stair_before = 0
-        world.attachCharacter(self.node())
+        self.is_fall = False
 
     def calc_climbed_steps(self):
         """Calculate the stair on which snowman is.
@@ -60,6 +62,22 @@ class SnowMan(NodePath):
         if stair == self.stair and \
                 not self.node().isOnGround():
             return True
+
+    def fall(self, dt):
+        distance = dt * 5
+        angle = 30 * dt
+        x = self.getX()
+        self.setX(x - distance)
+
+        # self.setP(self.getP() + 10)
+        # self.setR(45)
+        axis = Vec3.left()
+        q = Quat()
+        q.setFromAxisAngle(angle, axis.normalized())
+        # self.setQuat(self.getQuat().multiply(q))
+        self.setQuat(self, q)
+        if self.getX() < -1:
+            self.is_fall = False
 
 
 class ClimbStairs(ShowBase):
@@ -166,6 +184,9 @@ class ClimbStairs(ShowBase):
 
     def update(self, task):
         dt = globalClock.getDt()
+
+        if self.snowman.is_fall:
+            self.snowman.fall(dt)
         self.control_character()
         self.snowman.calc_climbed_steps()
         # print('now', self.snowman.stair, 'before', self.snowman.stair_before)
@@ -200,7 +221,11 @@ class ClimbStairs(ShowBase):
         for con in result.getContacts():
             name = con.getNode1().getName()
             if name.split('_')[0] in {'spheres', 'cones', 'saws', 'polhs'}:
-                print('collision', name)
+                # print('collision', name)
+                self.do_jump()
+                # self.snowman.hprInterval(1, Vec3(0, 360, 0)).start()
+                self.snowman.is_fall = True
+                break
 
         self.world.doPhysics(dt)
         return task.cont
