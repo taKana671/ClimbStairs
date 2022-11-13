@@ -88,7 +88,6 @@ class PolyhedronGeomMaker(GeomMaker):
         n = max(self.data['color_pattern'])
         return Colors.select(n + 1)
 
-    @property
     def num_rows(self):
         return sum(len(face) for face in self.data['faces'])
 
@@ -106,7 +105,7 @@ class PolyhedronGeomMaker(GeomMaker):
     def _make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()  # getV3n3c4
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-        vdata.setNumRows(self.num_rows)
+        vdata.setNumRows(self.num_rows())
 
         vertex = GeomVertexWriter(vdata, 'vertex')
         normal = GeomVertexWriter(vdata, 'normal')
@@ -203,7 +202,6 @@ class SphereGeomMaker(GeomMaker):
         node = self._make_geomnode()
         return node
 
-    @property
     def num_rows(self):
         """One triangle is subdivided into 4.
            The number of subdivide repetition is self.divnum.
@@ -247,7 +245,7 @@ class SphereGeomMaker(GeomMaker):
     def _make_geomnode(self):
         format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-        vdata.setNumRows(self.num_rows)
+        vdata.setNumRows(self.num_rows())
         vertex = GeomVertexWriter(vdata, 'vertex')
         color = GeomVertexWriter(vdata, 'color')
 
