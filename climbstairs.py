@@ -1,28 +1,24 @@
-import random
 import sys
-from enum import Enum, auto
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletCapsuleShape, ZUp
-from panda3d.bullet import BulletRigidBodyNode, BulletCharacterControllerNode, BulletDebugNode
-from panda3d.bullet import BulletHelper
-from panda3d.core import Vec2, Vec3, LColor, BitMask32, Point3, Quat
-from panda3d.core import NodePath, PandaNode, TransformState
-from panda3d.core import AmbientLight, DirectionalLight
-from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
+from panda3d.bullet import BulletCharacterControllerNode, BulletDebugNode
+from panda3d.core import Vec3, BitMask32
+from panda3d.core import NodePath, TransformState
+# from panda3d.core import AmbientLight, DirectionalLight
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
-from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
+from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres, EmbeddedGimmiks
 
 
 class SnowMan(NodePath):
 
     def __init__(self, world):
-        model = base.loader.loadModel('models/snowman/snowman')
-        model.setTransform(TransformState.makePos(Vec3(0, 0, -3)))
+        self.model = base.loader.loadModel('models/snowman/snowman')
+        self.model.setTransform(TransformState.makePos(Vec3(0, 0, -3)))
         height, radius = 7.0, 1.5
         shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
         super().__init__(BulletCharacterControllerNode(shape, 0.4, 'snowman'))
@@ -32,12 +28,12 @@ class SnowMan(NodePath):
         self.setPos(-1, 2, 0)
         self.setH(90)
         world.attachCharacter(self.node())
-        model.reparentTo(self)
+        self.model.reparentTo(self)
         self.setScale(0.3)
 
         self.stair = 0
         self.stair_before = 0
-        self.is_fall = False
+        self.falling = False
 
     def calc_climbed_steps(self):
         """Calculate the stair on which snowman is.
@@ -65,19 +61,11 @@ class SnowMan(NodePath):
 
     def fall(self, dt):
         distance = dt * 5
-        angle = 30 * dt
-        x = self.getX()
-        self.setX(x - distance)
 
-        # self.setP(self.getP() + 10)
-        # self.setR(45)
-        axis = Vec3.left()
-        q = Quat()
-        q.setFromAxisAngle(angle, axis.normalized())
-        # self.setQuat(self.getQuat().multiply(q))
-        self.setQuat(self, q)
-        if self.getX() < -1:
-            self.is_fall = False
+        if (x := self.getX() - distance) < -1:
+            self.falling = False
+        else:
+            self.setX(x)
 
 
 class ClimbStairs(ShowBase):
@@ -106,6 +94,7 @@ class ClimbStairs(ShowBase):
         self.spheres = Spheres(self.scene.stairs, self.world, 50)
         self.timer = 0
         self.toggle = True
+        self.reset = False
 
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -122,22 +111,6 @@ class ClimbStairs(ShowBase):
         inputState.watchWithModifiers('turn_left', 'w')
         self.accept('enter', self.do_jump)
         self.accept('escape', sys.exit)
-
-        self.accept('z', self.test_move_camera, ['z', 'up'])
-        self.accept('shift-z', self.test_move_camera, ['z', 'down'])
-        self.accept('x', self.test_move_camera, ['x', 'up'])
-        self.accept('shiht-x', self.test_move_camera, ['x', 'down'])
-        self.accept('y', self.test_move_camera, ['y', 'up'])
-        self.accept('shift-y', self.test_move_camera, ['y', 'down'])
-
-        self.accept('a', self.test_move_camera, ['h', 'up'])
-        self.accept('shift-a', self.test_move_camera, ['h', 'down'])
-        self.accept('s', self.test_move_camera, ['p', 'up'])
-        self.accept('shift-s', self.test_move_camera, ['p', 'down'])
-        self.accept('d', self.test_move_camera, ['r', 'up'])
-        self.accept('shift-d', self.test_move_camera, ['r', 'down'])
-
-        self.accept('f', self.test_move_camera, ['f', 'print'])
 
         self.taskMgr.add(self.update, 'update')
 
@@ -185,11 +158,10 @@ class ClimbStairs(ShowBase):
     def update(self, task):
         dt = globalClock.getDt()
 
-        if self.snowman.is_fall:
+        if self.snowman.falling:
             self.snowman.fall(dt)
         self.control_character()
         self.snowman.calc_climbed_steps()
-        # print('now', self.snowman.stair, 'before', self.snowman.stair_before)
 
         # increase stair
         if self.scene.stairs.top_stair - self.snowman.stair < 14:
@@ -206,6 +178,9 @@ class ClimbStairs(ShowBase):
             self.toggle = not self.toggle
             self.timer += 3
 
+        if self.reset and not self.snowman.falling:
+            EmbeddedGimmiks.reset(self.cones, self.saws)
+            self.reset = False
         self.cones.run(dt, self.snowman, self.saws.stair)
         self.saws.run(dt, self.snowman, self.cones.stair)
 
@@ -217,78 +192,19 @@ class ClimbStairs(ShowBase):
             elif name.startswith('spheres'):
                 self.spheres.delete(name)
 
-        result = self.world.contactTest(self.snowman.node())
-        for con in result.getContacts():
-            name = con.getNode1().getName()
-            if name.split('_')[0] in {'spheres', 'cones', 'saws', 'polhs'}:
-                # print('collision', name)
-                self.do_jump()
-                # self.snowman.hprInterval(1, Vec3(0, 360, 0)).start()
-                self.snowman.is_fall = True
-                break
+        if not self.snowman.falling:
+            result = self.world.contactTest(self.snowman.node())
+            for con in result.getContacts():
+                name = con.getNode1().getName()
+                if name.split('_')[0] in {'spheres', 'cones', 'saws', 'polhs'}:
+                    print('collision', name)
+                    self.reset = True
+                    self.snowman.falling = True
+                    break
 
         self.world.doPhysics(dt)
         return task.cont
 
-    def test_move_camera(self, direction, move):
-        if direction == 'z':
-            z = self.camera.getZ()
-            if move == 'up':
-                self.camera.setZ(z + 1)
-            elif move == 'down':
-                self.camera.setZ(z - 1)
-        elif direction == 'x':
-            x = self.camera.getX()
-            if move == 'up':
-                self.camera.setX(x + 1)
-            elif move == 'down':
-                self.camera.setX(x - 1)
-        elif direction == 'y':
-            y = self.camera.getY()
-            if move == 'up':
-                self.camera.setY(y + 1)
-            elif move == 'down':
-                self.camera.setY(y - 1)
-        elif direction == 'h':
-            if move == 'up':
-                self.look_x += 1
-            elif move == 'down':
-                self.look_x -= 1
-            self.camera.lookAt(self.look_x, self.look_y, self.look_z)
-        elif direction == 'p':
-            if move == 'up':
-                self.look_y += 1
-            elif move == 'down':
-                self.look_y -= 1
-            self.camera.lookAt(self.look_x, self.look_y, self.look_z)
-        elif direction == 'r':
-            if move == 'up':
-                self.look_z += 1
-            elif move == 'down':
-                self.look_z -= 1
-            self.camera.lookAt(self.look_x, self.look_y, self.look_z)
-        elif direction == 'f':
-            print('pos', self.camera.getPos())
-            print('hpr', self.camera.getHpr())
-
-        # elif direction == 'h':
-        #     h = self.camera.getH()
-        #     if move == 'up':
-        #         self.camera.setH(h + 1)
-        #     elif move == 'down':
-        #         self.camera.setH(h - 1)
-        # elif direction == 'p':
-        #     p = self.camera.getP()
-        #     if move == 'up':
-        #         self.camera.setP(p + 1)
-        #     elif move == 'down':
-        #         self.camera.setP(p - 1)
-        # elif direction == 'r':
-        #     r = self.camera.getR()
-        #     if move == 'up':
-        #         self.camera.setR(r + 1)
-        #     elif move == 'down':
-        #         self.camera.setR(r - 1)
 
 if __name__ == '__main__':
     game = ClimbStairs()

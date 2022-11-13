@@ -135,22 +135,27 @@ class EmbeddedGimmiks(GimmickRoot):
         self.stair = None
         self.state = State.WAIT
 
-    def decide_stair(self, start, *trick_stairs):
+    @classmethod
+    def reset(cls, start, *gimmicks):
+        for gimm in gimmicks:
+            if gimm.state == State.READY:
+                gimm.state = State.WAIT
+
+    def decide_stair(self, start, *stairs):
         """Decide a stair in which to make a gimmick. The stair is between
            start and the 10th from the start.
         """
         self.stair = random.choice(
-            [n for n in range(start, start + 10) if n not in trick_stairs]
+            [n for n in range(start, start + 10) if n not in stairs]
         )
         self.state = State.READY
         print(self.__class__.__name__, self.stair)
 
     def run(self, dt, snowman, *trick_stairs):
         if self.state == State.READY:
-            # If snowman goes down, reset the stair.
             if self.stair > snowman.stair + 10:
                 self.state = State.WAIT
-            elif snowman.is_jump(self.stair):
+            if snowman.is_jump(self.stair):
                 self.setup(snowman.getPos())
         elif self.state == State.APPEAR:
             self.appear(dt)
@@ -161,7 +166,8 @@ class EmbeddedGimmiks(GimmickRoot):
         elif self.state == State.DISAPPEAR:
             self.disappear(dt)
         elif self.state == State.WAIT:
-            self.decide_stair(snowman.stair, *trick_stairs)
+            # self.stair = None
+            self.decide_stair(snowman.stair, self.stair, *trick_stairs)
 
 
 class Cones(EmbeddedGimmiks):
@@ -169,34 +175,31 @@ class Cones(EmbeddedGimmiks):
     def __init__(self, stairs, world):
         super().__init__(stairs, world)
         self.cone_maker = PyramidGeomMaker()
-        self.cones = [cone for cone in self.make_cones()]
+        n = self.stairs.left_end - self.stairs.right_end
+        self.cones = [None for _ in range(n)]
         self.timer = 0
 
-    def make_cones(self):
-        n = self.stairs.left_end - self.stairs.right_end
-        stair_center = self.stairs.center(0)
+    def make_cone(self, i, pos):
+        geomnode = self.cone_maker.make_geomnode()
+        cone = Pyramid(geomnode, f'cones_{i}', pos)
+        self.world.attachRigidBody(cone.node())
 
-        for i in range(n):
-            geomnode = self.cone_maker.make_geomnode()
-            pos = self.start_pos(i, stair_center)
-            cone = Pyramid(geomnode, f'cones_{i}', pos)
-            self.world.attachRigidBody(cone.node())
-            yield cone
-
-    def start_pos(self, i, stair_center):
-        x = stair_center.x + 2
-        y = self.stairs.left_end - (i + 0.5)
-        z = stair_center.z + 0.5
-        return Point3(x, y, z)
+        return cone
 
     def setup(self, chara_pos):
         stair_center = self.stairs.center(self.stair)
-        self.start_x = stair_center.x + 2
-        self.stop_x = stair_center.x + 0.8
+        self.x_start = stair_center.x + 2.2
+        self.x_stop = stair_center.x + 0.9
+        z = stair_center.z + 0.5
 
         for i, cone in enumerate(self.cones):
-            pos = self.start_pos(i, stair_center)
-            cone.setPos(pos)
+            y = self.stairs.left_end - (i + 0.5)
+            pos = Point3(self.x_start, y, z)
+            if cone:
+                cone.setPos(pos)
+            else:
+                cone = self.make_cone(i, pos)
+                self.cones[i] = cone
             cone.reparentTo(self)
 
         self.state = State.APPEAR
@@ -207,7 +210,7 @@ class Cones(EmbeddedGimmiks):
             x = cone.getX() - distance
             cone.setX(x)
 
-        if x < self.stop_x:
+        if x < self.x_stop:
             self.timer = globalClock.getFrameCount() + 30
             self.state = State.STAY
 
@@ -222,7 +225,7 @@ class Cones(EmbeddedGimmiks):
             x = cone.getX() + distance
             cone.setX(x)
 
-        if x > self.start_x:
+        if x > self.x_start:
             self.finish()
             self.state = State.WAIT
 
@@ -237,22 +240,16 @@ class CircularSaws(EmbeddedGimmiks):
         super().__init__(stairs, world)
         self.creater = PolyhedronGeomMaker()
         self.colors = (RED, BLUE, LIGHT_GRAY)
-        self.saws = self.make_saws()
+        self.saws = dict(left=None, right=None)
 
-    def make_saws(self):
-        stair_center = self.stairs.center(1)
-        dic = dict()
+    def make_saw(self, key, pos):
+        geom_node = self.creater.make_geomnode('octagon_prism', self.colors)
+        saw = SlimPrism(geom_node, f'saws_{key}', pos)
+        self.world.attachRigidBody(saw.node())
 
-        for key in ('left', 'right'):
-            geom_node = self.creater.make_geomnode('octagon_prism', self.colors)
-            pos = self.start_pos(stair_center, key)
-            saw = SlimPrism(geom_node, f'saws_{key}', pos)
-            self.world.attachRigidBody(saw.node())
-            dic[key] = saw
+        return saw
 
-        return dic
-
-    def start_pos(self, stair_center, key, from_center=False):
+    def start_xy(self, stair_center, key, from_center):
         if key == 'left':
             x = stair_center.x - 0.1
         else:
@@ -266,20 +263,25 @@ class CircularSaws(EmbeddedGimmiks):
             else:
                 y = self.stairs.right_end + 0.5
 
-        return Point3(x, y, stair_center.z - 1)
+        return x, y
 
     def setup(self, chara_pos):
         stair_center = self.stairs.center(self.stair)
-        self.start_z = stair_center.z - 1
-        self.stop_z = stair_center.z
+        self.z_start = stair_center.z - 1.2
+        self.z_stop = stair_center.z
 
         from_center = False
         if self.stairs.right_end / 2 < chara_pos.y < self.stairs.left_end / 2:
             from_center = True
 
         for key, saw in self.saws.items():
-            pos = self.start_pos(stair_center, key, from_center)
-            saw.setPos(pos)
+            x, y = self.start_xy(stair_center, key, from_center)
+            pos = Point3(x, y, self.z_start)
+            if saw:
+                saw.setPos(pos)
+            else:
+                saw = self.make_saw(key, pos)
+                self.saws[key] = saw
             saw.reparentTo(self)
 
         self.state = State.APPEAR
@@ -290,7 +292,7 @@ class CircularSaws(EmbeddedGimmiks):
             z = saw.getZ() + distance
             saw.setZ(z)
 
-        if z > self.stop_z:
+        if z > self.z_stop:
             self.state = State.MOVE
 
     def move(self, dt):
@@ -315,7 +317,7 @@ class CircularSaws(EmbeddedGimmiks):
             z = saw.getZ() - distance
             saw.setZ(z)
 
-        if z < self.start_z:
+        if z < self.z_start:
             self.finish()
             self.state = State.WAIT
 
