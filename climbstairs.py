@@ -4,9 +4,9 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode, BulletDebugNode
-from panda3d.core import Vec3, BitMask32
+from panda3d.core import Vec3, BitMask32, Point3, LColor
 from panda3d.core import NodePath, TransformState
-# from panda3d.core import AmbientLight, DirectionalLight
+from panda3d.core import AmbientLight, DirectionalLight
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
@@ -73,20 +73,16 @@ class ClimbStairs(ShowBase):
     def __init__(self):
         super().__init__()
         self.disableMouse()
-        self.camera.setPos(-11, -16, 13)
-
-        # self.camera.setPos(-11, -16, 20)
-        # self.camera.lookAt(5, 7, 10)
-
+        self.camera.setPos(Point3(-14.6, -16, 10.8))
         # self.camera.lookAt(5, 7, 4)
-        self.camera.setHpr(-35, -18, 0)
-        self.camera_before_x = 0
+        self.camera.setHpr(Vec3(-41, -18, 0))
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
 
         self.snowman = SnowMan(self.world)
+        self.camera_before_x = self.snowman.getX()
 
         self.cones = Cones(self.scene.stairs, self.world)
         self.saws = CircularSaws(self.scene.stairs, self.world)
@@ -141,19 +137,11 @@ class ClimbStairs(ShowBase):
 
     def move_camera(self):
         """Change camera x and z with the movement of snowman.
-           The width and height of stairs increase by one like below.
-            idx      pos
-             0   LPoint3f(0, 0, 1)
-             1   LPoint3f(1, 0, 2)
-             2   LPoint3f(2, 0, 3)
-             3   LPoint3f(3, 0, 4)
         """
-        if (x := self.snowman.getX()) <= 2:
-            self.camera_before_x = x
-        elif (distance := self.snowman.getX() - self.camera_before_x) != 0:
+        if (distance := self.snowman.getX() - self.camera_before_x) != 0:
             self.camera_before_x = self.snowman.getX()
-            pos = self.camera.getPos()
-            self.camera.setPos(pos.x + distance, pos.y, pos.z + distance)
+            pos = self.camera.getPos() + Vec3(distance, 0, distance)
+            self.camera.setPos(pos)
 
     def update(self, task):
         dt = globalClock.getDt()
@@ -181,6 +169,7 @@ class ClimbStairs(ShowBase):
         if self.reset and not self.snowman.falling:
             EmbeddedGimmiks.reset(self.cones, self.saws)
             self.reset = False
+
         self.cones.run(dt, self.snowman, self.saws.stair)
         self.saws.run(dt, self.snowman, self.cones.stair)
 
