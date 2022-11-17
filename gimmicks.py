@@ -65,11 +65,12 @@ class DropGimmicks(GimmickRoot):
             pos = Point3(stair_center.x, snowman_pos.y, stair_center.z + 3)
             self.drop_start(index, pos)
 
-    def delete(self, name):
+    def delete(self, name, task):
         index = name.split('_')[1]
         np = self.holder.pop(int(index))
         self.world.remove(np.node())
         np.removeNode()
+        return task.done
 
     def drop_start(self, index, pos):
         """Override in subclasses.
@@ -136,7 +137,7 @@ class EmbeddedGimmiks(GimmickRoot):
         self.state = State.WAIT
 
     @classmethod
-    def reset(cls, start, *gimmicks):
+    def reset(cls, *gimmicks):
         for gimm in gimmicks:
             if gimm.state == State.READY:
                 gimm.state = State.WAIT
@@ -153,8 +154,8 @@ class EmbeddedGimmiks(GimmickRoot):
 
     def run(self, dt, snowman, *trick_stairs):
         if self.state == State.READY:
-            if self.stair > snowman.stair + 10:
-                self.state = State.WAIT
+            # if self.stair > snowman.stair + 10:
+            #     self.state = State.WAIT
             if snowman.is_jump(self.stair):
                 self.setup(snowman.getPos())
         elif self.state == State.APPEAR:
@@ -388,7 +389,6 @@ class Sphere(NodePath):
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
         np.reparentTo(self)
-
         end, tip = np.getTightBounds()
         size = tip - end
         self.node().addShape(BulletSphereShape(size.z / 2))

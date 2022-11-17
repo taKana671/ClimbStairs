@@ -41,8 +41,8 @@ class Stairs(NodePath):
     def increase(self):
         self.top_stair += 1
         name = f'stairs_{self.top_stair}'
-        scale = Vec3(1, 12, self.top_stair + 1)
-        # scale = Vec3(1, 10, self.top_stair + 1)
+        # scale = Vec3(1, 12, self.top_stair + 1)
+        scale = Vec3(1, 10, self.top_stair + 1)
         pos = Point3(self.edge * self.top_stair, 0, self.edge / 2 * (self.top_stair + 1))
         stair = Cube(name, pos, scale, self.np_cube)
         stair.reparentTo(self)
@@ -91,6 +91,7 @@ class Floor(NodePath):
         model = self.create_floor(scene.stairs)
         model.reparentTo(self)
         self.setCollideMask(BitMask32.bit(1))
+        self.node().setRestitution(1)
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
 
     def create_floor(self, stairs):
