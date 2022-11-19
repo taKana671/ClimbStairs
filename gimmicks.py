@@ -136,11 +136,15 @@ class EmbeddedGimmiks(GimmickRoot):
         self.stair = None
         self.state = State.WAIT
 
-    @classmethod
-    def reset(cls, *gimmicks):
-        for gimm in gimmicks:
-            if gimm.state == State.READY:
-                gimm.state = State.WAIT
+    # @classmethod
+    # def reset(cls, *gimmicks):
+    #     for gimm in gimmicks:
+    #         if gimm.state == State.READY:
+
+    def reset(self, start, *gimmicks):
+        print('reset')
+        if self.state == State.READY:
+            self.decide_stair(start, *gimmicks)
 
     def decide_stair(self, start, *stairs):
         """Decide a stair in which to make a gimmick. The stair is between
@@ -149,7 +153,7 @@ class EmbeddedGimmiks(GimmickRoot):
         self.stair = random.choice(
             [n for n in range(start, start + 10) if n not in stairs]
         )
-        self.state = State.READY
+        # self.state = State.READY
         print(self.__class__.__name__, self.stair)
 
     def run(self, dt, snowman, *trick_stairs):
@@ -158,6 +162,10 @@ class EmbeddedGimmiks(GimmickRoot):
             #     self.state = State.WAIT
             if snowman.is_jump(self.stair):
                 self.setup(snowman.getPos())
+            # if reset:
+            #     self.state = State.WAIT
+            # elif snowman.is_jump(self.stair):
+            #     self.setup(snowman.getPos())
         elif self.state == State.APPEAR:
             self.appear(dt)
         elif self.state == State.STAY:
@@ -167,8 +175,9 @@ class EmbeddedGimmiks(GimmickRoot):
         elif self.state == State.DISAPPEAR:
             self.disappear(dt)
         elif self.state == State.WAIT:
-            # self.stair = None
+            print('decide')
             self.decide_stair(snowman.stair, self.stair, *trick_stairs)
+            self.state = State.READY
 
 
 class Cones(EmbeddedGimmiks):
