@@ -3,11 +3,12 @@ import sys
 from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld
 from panda3d.bullet import BulletDebugNode
-from panda3d.core import Vec3, Point3
+from panda3d.core import Vec3, Point3, TextNode
+from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBaseGlobal import globalClock
 
 from scene import Scene
-from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres, EmbeddedGimmiks
+from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
 from characters import SnowMan
 
 
@@ -25,7 +26,7 @@ class ClimbStairs(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
 
-        self.snowman = SnowMan(Point3(-1, 2, 0), self.world)
+        self.snowman = SnowMan(Point3(-1, 2, 0), self.world, self.scene.stairs)
         self.camera_before_x = self.snowman.getX()
 
         self.cones = Cones(self.scene.stairs, self.world)
@@ -35,6 +36,15 @@ class ClimbStairs(ShowBase):
         self.timer = 0
         self.toggle = True
         self.reset = False
+
+        self.display = OnscreenText(
+            text='',
+            parent=self.a2dTopLeft,
+            align=TextNode.ALeft,
+            pos=(0.05, -0.1),
+            scale=0.1,
+            mayChange=True
+        )
 
         # *******************************************
         collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
@@ -68,6 +78,7 @@ class ClimbStairs(ShowBase):
         dt = globalClock.getDt()
 
         self.snowman.update(dt)
+        self.display.setText(str(self.snowman.stair))
         # print('self.snowman', self.snowman.stair)
         # increase stair
         if self.scene.stairs.top_stair - self.snowman.stair < 14:
@@ -84,16 +95,8 @@ class ClimbStairs(ShowBase):
             self.toggle = not self.toggle
             self.timer += 3
 
-        # if self.reset and not self.snowman.falling:
-        #     EmbeddedGimmiks.reset(self.cones, self.saws)
-        #     self.reset = False
-
         self.cones.run(dt, self.snowman, self.saws.stair)
         self.saws.run(dt, self.snowman, self.cones.stair)
-
-        if any(obj.stair > self.snowman.stair + 10 for obj in (self.saws, self.cones)):
-            self.saws.reset(self.snowman.stair, self.cones)
-            self.cones.reset(self.snowman.stair, self.saws)
 
         # remove polyhedrons and spheres on the floor.
         self.clean_floor()

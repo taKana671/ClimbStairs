@@ -2,7 +2,7 @@ from enum import Enum, auto
 
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
-from panda3d.core import Vec3, BitMask32
+from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import NodePath, TransformState
 from direct.showbase.InputStateGlobal import inputState
 
@@ -11,19 +11,22 @@ class State(Enum):
 
     FALLING = auto()
     CLIMBING = auto()
+    GRAVITATING = auto()
 
 
 class Characters(NodePath):
 
-    def __init__(self, world, shape, name):
+    def __init__(self, stairs, world, shape, name):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, name))
         self.world = world
+        self.stairs = stairs
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
         # self.setCollideMask(BitMask32.allOn())
         self.world.attachCharacter(self.node())
 
-        self.state = State.CLIMBING
+        # self.state = None
+        self.climbing = True
         self.stair = 0
         self.stair_before = 0
         self.back_to = None
@@ -81,7 +84,7 @@ class Characters(NodePath):
                 self.back_to = self.stair - 1 - go_back
                 if self.back_to < -1:
                     self.back_to = -1
-                self.state = State.FALLING
+                self.climbing = False
                 break
 
     def calc_climbed_steps(self):
@@ -110,28 +113,28 @@ class Characters(NodePath):
 
     def fall(self, dt):
         distance = dt * 10
-
         if (x := self.getX() - distance) >= self.back_to:
             self.setX(x)
         else:
             self.setX(self.back_to)
-            self.state = State.CLIMBING
+            if self.stair == self.back_to + 1:
+                self.climbing = True
 
     def update(self, dt):
-        if self.state == State.CLIMBING:
-            self.control_character()
-            self.calc_climbed_steps()
-            self.detect_collision()
-        elif self.state == State.FALLING:
-            self.fall(dt)
+        self.calc_climbed_steps()
 
+        if self.climbing:
+            self.control_character()
+            self.detect_collision()
+        else:
+            self.fall(dt)
 
 class SnowMan(Characters):
 
-    def __init__(self, pos, world):
+    def __init__(self, pos, world, stairs):
         height, radius = 7.0, 1.5
         shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
-        super().__init__(world, shape, 'snowman')
+        super().__init__(stairs, world, shape, 'snowman')
         model = base.loader.loadModel('models/snowman/snowman')
         model.setTransform(TransformState.makePos(Vec3(0, 0, -3)))
         model.reparentTo(self)
