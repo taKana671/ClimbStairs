@@ -33,25 +33,25 @@ class Characters(NodePath):
             self.node().setMaxJumpHeight(2.0)  # 5.0
             self.node().setJumpSpeed(5.0)      # 8.0
             self.node().doJump()
-        else:
-            speed = Vec3(0, 0, 0)
-            omega = 0.0
 
-            if inputState.isSet('left'):
-                speed.setX(2.0)
-            elif inputState.isSet('right'):
-                speed.setX(-2.0)
-            elif inputState.isSet('forward'):
-                speed.setY(-2.0)
-            elif inputState.isSet('backward'):
-                speed.setY(2.0)
-            elif inputState.isSet('turn_right'):
-                omega = -120
-            elif inputState.isSet('turn_left'):
-                omega = 120
+        speed = Vec3(0, 0, 0)
+        omega = 0.0
 
-            self.node().setAngularMovement(omega)
-            self.node().setLinearMovement(speed, True)
+        if inputState.isSet('left'):
+            speed.setX(2.0)
+        if inputState.isSet('right'):
+            speed.setX(-2.0)
+        if inputState.isSet('forward'):
+            speed.setY(-2.0)
+        if inputState.isSet('backward'):
+            speed.setY(2.0)
+        if inputState.isSet('turn_right'):
+            omega = -120
+        if inputState.isSet('turn_left'):
+            omega = 120
+
+        self.node().setAngularMovement(omega)
+        self.node().setLinearMovement(speed, True)
 
     def detect_collision(self):
         go_back = 0
@@ -60,13 +60,15 @@ class Characters(NodePath):
         for con in result.getContacts():
             nd_name = con.getNode1().getName()
             if (prefix := nd_name.split('_')[0]) == 'spheres':
-                go_back += 2
-            elif prefix == 'cones':
-                go_back += 4
-            elif prefix == 'saws':
-                go_back += 5
-            elif prefix == 'polhs':
                 go_back += 3
+            elif prefix == 'cones':
+                go_back += 1
+            elif prefix == 'saws':
+                go_back += 4
+            elif prefix == 'polhs':
+                go_back += 5
+            elif prefix == 'piles':
+                go_back += 2
 
             # print('collision', nd_name)
             if go_back > 0:
