@@ -8,7 +8,7 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBaseGlobal import globalClock
 
 from scene import Scene
-from gimmicks import Polyhedrons, Spheres, Cones, CircularSaws
+from gimmicks import Polyhedrons, Spheres, Cones, CircularSaws, Piles
 from characters import SnowMan
 
 
@@ -33,6 +33,7 @@ class ClimbStairs(ShowBase):
         self.saws = CircularSaws(self.scene.stairs, self.world)
         self.polhs = Polyhedrons(self.scene.stairs, self.world, 50)
         self.spheres = Spheres(self.scene.stairs, self.world, 50)
+        self.piles = Piles(self.scene.stairs, self.world)
 
         self.timer = 0
         self.toggle = True
@@ -93,8 +94,9 @@ class ClimbStairs(ShowBase):
             self.toggle = not self.toggle
             self.timer += 3
 
-        self.cones.run(dt, self.snowman, self.saws.stair)
-        self.saws.run(dt, self.snowman, self.cones.stair)
+        self.cones.run(dt, self.snowman, self.saws.stair, self.piles.stair)
+        self.saws.run(dt, self.snowman, self.cones.stair, self.piles.stair)
+        self.piles.run(dt, self.snowman, self.cones.stair, self.saws.stair)
 
         # remove polyhedrons and spheres on the floor.
         self.clean_floor()

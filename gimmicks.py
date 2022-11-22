@@ -5,7 +5,7 @@ from enum import Enum, auto
 
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
-from panda3d.core import Vec3, Point3, LColor, BitMask32
+from panda3d.core import Vec3, Point3, LColor, BitMask32, Quat
 from panda3d.core import NodePath, PandaNode
 from direct.showbase.ShowBaseGlobal import globalClock
 
@@ -146,11 +146,11 @@ class EmbeddedGimmiks(GimmickRoot):
            start and the 10th from the start.
         """
         self.stair = random.choice(
-            [n for n in range(start, start + 10) if n not in stairs]
+            [n for n in range(start, start + 15) if n not in stairs]
         )
         self.state = State.READY
 
-        print(self.__class__.__name__, self.stair, 'start:', start, 'end', start + 10)
+        print(self.__class__.__name__, self.stair, 'start:', start, 'end', start + 15)
 
     def run(self, dt, snowman, *trick_stairs):
         if self.state == State.READY:
@@ -250,20 +250,27 @@ class CircularSaws(EmbeddedGimmiks):
 
         return saw
 
-    def setup(self, chara_pos):
-        stair_center = self.stairs.center(self.stair)
-        self.z_start = stair_center.z - 1.2
-        self.z_stop = stair_center.z
+    def start_xy(self, stair_center, chara_pos, key):
+        delta = -0.1 if key == 'left' else 0.1
+        x = stair_center.x + delta
 
-        y = None
         if self.stairs.right_end / 2 < chara_pos.y < self.stairs.left_end / 2:
             y = stair_center.y
+        else:
+            if key == 'left':
+                y = self.stairs.left_end - 0.7
+            else:
+                y = self.stairs.right_end + 0.7
+
+        return (x, y)
+
+    def setup(self, chara_pos):
+        stair_center = self.stairs.center(self.stair)
+        self.z_start = stair_center.z - 1.5
+        self.z_stop = stair_center.z
 
         for key, saw in self.saws.items():
-            x = stair_center.x - 0.1 if key == 'left' else stair_center.x + 0.1
-            if y is None:
-                y = self.stairs.left_end - 0.5 if key == 'left' else self.stairs.right_end + 0.5
-
+            x, y = self.start_xy(stair_center, chara_pos, key)
             pos = Point3(x, y, self.z_start)
             if saw:
                 saw.setPos(pos)
@@ -275,7 +282,7 @@ class CircularSaws(EmbeddedGimmiks):
         self.state = State.APPEAR
 
     def appear(self, dt):
-        distance = dt * 2
+        distance = dt * 3
         for saw in self.saws.values():
             z = saw.getZ() + distance
             saw.setZ(z)
@@ -284,8 +291,8 @@ class CircularSaws(EmbeddedGimmiks):
             self.state = State.MOVE
 
     def move(self, dt):
-        distance = dt * 2
-        angle = dt * 100
+        distance = dt * 5
+        angle = dt * 500
 
         for key, saw in self.saws.items():
             if key == 'left':
@@ -293,9 +300,13 @@ class CircularSaws(EmbeddedGimmiks):
             else:
                 y = saw.getY() + distance
             saw.setY(y)
-            saw.np.setH(saw.np.getH() + angle)
 
-        if self.saws['left'].getY() < self.stairs.right_end + 0.5:
+            q = Quat()
+            axis = Vec3.down()
+            q.setFromAxisAngle(angle, axis.normalized())
+            saw.setQuat(saw, q)
+
+        if self.saws['left'].getY() < self.stairs.right_end + 0.7:
             self.state = State.DISAPPEAR
 
     def disappear(self, dt):
@@ -312,6 +323,88 @@ class CircularSaws(EmbeddedGimmiks):
     def finish(self):
         for saw in self.saws.values():
             saw.detach_node()
+
+
+class Piles(EmbeddedGimmiks):
+
+    def __init__(self, stairs, world):
+        super().__init__(stairs, world)
+        self.polh_maker = PolyhedronGeomMaker()
+        self.piles = [None for _ in range(2)]
+        self.colors = (BLUE, RED)
+        self.timer = 0
+
+    def make_cone(self, i, pos):
+        geomnode = self.polh_maker.make_geomnode('octahedron', self.colors)
+        pile = Octahedron(geomnode, f'piles_{i}', pos)
+        self.world.attachRigidBody(pile.node())
+
+        return pile
+
+    def setup(self, chara_pos):
+        stair_center = self.stairs.center(self.stair)
+        self.z_start = stair_center.z - 1
+        self.z_stop = stair_center.z
+
+        pos = Point3(stair_center.x, chara_pos.y, self.z_start)
+
+        if self.stairs.right_end + 1 <= chara_pos.y <= self.stairs.left_end - 1:
+            positions = [pos + Vec3(0, 0.3, 0), pos + Vec3(0, -0.3, 0)]
+        elif self.stairs.left_end - 1 <= chara_pos.y:
+            positions = [pos + Vec3(0, 0, 0), pos + Vec3(0, -0.6, 0)]
+        elif chara_pos.y <= self.stairs.right_end + 1:
+            positions = [pos + Vec3(0, 0.6, 0), pos + Vec3(0, 0, 0)]
+
+        for i, pile in enumerate(self.piles):
+            pos = positions[i]
+            if pile:
+                pile.setPos(pos)
+            else:
+                pile = self.make_cone(i, pos)
+                self.piles[i] = pile
+            pile.reparentTo(self)
+
+        self.state = State.APPEAR
+
+    def move(self, pile, z, angle):
+        pile.setZ(z)
+        q = Quat()
+        axis = Vec3.up()
+        q.setFromAxisAngle(angle, axis.normalized())
+        pile.setQuat(pile, q)
+
+    def appear(self, dt):
+        distance = dt
+        angle = dt * 1000
+
+        for pile in self.piles:
+            z = pile.getZ() + distance
+            self.move(pile, z, angle)
+
+        if z > self.z_stop:
+            self.timer = globalClock.getFrameCount() + 30
+            self.state = State.STAY
+
+    def stay(self):
+        if globalClock.getFrameCount() > self.timer:
+            self.timer = 0
+            self.state = State.DISAPPEAR
+
+    def disappear(self, dt):
+        distance = dt
+        angle = dt * 1000
+
+        for pile in self.piles:
+            z = pile.getZ() - distance
+            self.move(pile, z, angle)
+
+        if z < self.z_start:
+            self.finish()
+            self.state = State.WAIT
+
+    def finish(self):
+        for pile in self.piles:
+            pile.detachNode()
 
 
 class Polyhedron(NodePath):
@@ -383,3 +476,20 @@ class Sphere(NodePath):
         self.node().setRestitution(0.7)
         self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
         self.setScale(scale)
+
+
+class Octahedron(NodePath):
+
+    def __init__(self, geom_node, node_name, pos):
+        super().__init__(BulletRigidBodyNode(node_name))
+        np = self.attachNewNode(geom_node)
+        np.setTwoSided(True)
+        np.reparentTo(self)
+        shape = BulletConvexHullShape()
+        shape.addGeom(geom_node.getGeom(0))
+        self.node().addShape(shape)
+        self.node().setRestitution(0.7)
+        self.setCollideMask(BitMask32.bit(2))
+        self.setScale(0.3, 0.3, 1.2)
+        self.setPos(pos)
+        self.node().setKinematic(True)
