@@ -9,6 +9,7 @@ from geommaker import PolyhedronGeomMaker
 
 BLACK = LColor(0.0, 0.0, 0.0, 0.0)
 AMETHYST = LColor(0.6, 0.4, 0.68, 1.0)
+MediumPurple = LColor(0.57, 0.43, 0.85, 1.0)
 
 
 class Stairs(NodePath):
@@ -26,11 +27,10 @@ class Stairs(NodePath):
         self.world = world
         self.top_stair = -1
         self.edge = 1
-        self.stairs = []
         self.setup_stairs()
 
-        stair = self.stairs[self.top_stair]
-        end, tip = stair.getTightBounds()
+        first_stair = self.getChild(0)
+        end, tip = first_stair.getTightBounds()
         self.left_end = int(tip.y)
         self.right_end = int(end.y)
 
@@ -41,16 +41,15 @@ class Stairs(NodePath):
     def increase(self):
         self.top_stair += 1
         name = f'stairs_{self.top_stair}'
-        scale = Vec3(1, 10, self.top_stair + 1)
         # scale = Vec3(1, 12, self.top_stair + 1)
+        scale = Vec3(1, 10, self.top_stair + 1)
         pos = Point3(self.edge * self.top_stair, 0, self.edge / 2 * (self.top_stair + 1))
         stair = Cube(name, pos, scale, self.np_cube)
         stair.reparentTo(self)
         self.world.attachRigidBody(stair.node())
-        self.stairs.append(stair)
 
     def center(self, n):
-        if n < len(self.stairs):
+        if 0 <= n <= self.top_stair:
             return Point3(self.edge * n, 0, n + 1)
         return None
 
@@ -92,6 +91,7 @@ class Floor(NodePath):
         model = self.create_floor(scene.stairs)
         model.reparentTo(self)
         self.setCollideMask(BitMask32.bit(1))
+        self.node().setRestitution(1)
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
 
     def create_floor(self, stairs):
@@ -100,13 +100,13 @@ class Floor(NodePath):
         card.setFrame(-1, 1, -1, 1)
         start, end = stairs.right_end, stairs.left_end
 
-        for y in range(start + 1, end, 2):
-            for x in range(start - 1, end, 2):
+        for y in range(start - 3, end, 2):
+            for x in range(start - 3, end + 3, 2):
                 g = model.attachNewNode(card.generate())
                 g.setP(-90)
                 g.setPos(Point3(x, y, 0))
 
-        model.setColor(LColor(0.6, 0.4, 0.68, 1.0))
+        model.setColor(AMETHYST)
         model.flattenStrong()
         model.setPos(Point3(0, 0, 0))
         return model
@@ -128,7 +128,7 @@ class Scene(NodePath):
     def __init__(self, world):
         super().__init__(PandaNode('scene'))
         self.reparentTo(base.render)
-        base.setBackgroundColor(LColor(0.57, 0.43, 0.85, 1.0))  # MediumPurple
+        base.setBackgroundColor(MediumPurple)
 
         self.stairs = Stairs(self, world)
         self.floor = Floor(self)
