@@ -1,5 +1,3 @@
-from enum import Enum, auto
-
 from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import Vec3, Point3, BitMask32
@@ -7,25 +5,16 @@ from panda3d.core import NodePath, TransformState
 from direct.showbase.InputStateGlobal import inputState
 
 
-class State(Enum):
-
-    FALLING = auto()
-    CLIMBING = auto()
-    GRAVITATING = auto()
-
-
 class Characters(NodePath):
 
-    def __init__(self, stairs, world, shape, name):
+    def __init__(self, world, shape, name):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, name))
         self.world = world
-        self.stairs = stairs
         self.reparentTo(base.render)
         self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
         # self.setCollideMask(BitMask32.allOn())
         self.world.attachCharacter(self.node())
 
-        # self.state = None
         self.climbing = True
         self.stair = 0
         self.stair_before = 0
@@ -129,12 +118,13 @@ class Characters(NodePath):
         else:
             self.fall(dt)
 
+
 class SnowMan(Characters):
 
-    def __init__(self, pos, world, stairs):
+    def __init__(self, pos, world):
         height, radius = 7.0, 1.5
         shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
-        super().__init__(stairs, world, shape, 'snowman')
+        super().__init__(world, shape, 'snowman')
         model = base.loader.loadModel('models/snowman/snowman')
         model.setTransform(TransformState.makePos(Vec3(0, 0, -3)))
         model.reparentTo(self)

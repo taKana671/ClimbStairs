@@ -7,7 +7,6 @@ from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import Vec3, Point3, LColor, BitMask32
 from panda3d.core import NodePath, PandaNode
-from direct.interval.IntervalGlobal import Sequence, Parallel, Func, Wait
 from direct.showbase.ShowBaseGlobal import globalClock
 
 
@@ -136,7 +135,11 @@ class EmbeddedGimmiks(GimmickRoot):
         self.stair = None
         self.state = State.WAIT
 
-        self.reset = False
+    def __init_subclass__(cls):
+        super().__init_subclass__()
+        for method in ('setup', 'appear', 'disappear'):
+            if method not in cls.__dict__:
+                raise NotImplementedError()
 
     def decide_stair(self, start, *stairs):
         """Decide a stair in which to make a gimmick. The stair is between
@@ -151,10 +154,7 @@ class EmbeddedGimmiks(GimmickRoot):
 
     def run(self, dt, snowman, *trick_stairs):
         if self.state == State.READY:
-            # if self.stair > snowman.stair + 10:
             if not snowman.climbing:
-                print(self.__class__.__name__, 'reset', snowman.climbing)
-                self.reset = True
                 self.state = State.WAIT
             elif snowman.is_jump(self.stair):
                 self.setup(snowman.getPos())
@@ -167,11 +167,7 @@ class EmbeddedGimmiks(GimmickRoot):
         elif self.state == State.DISAPPEAR:
             self.disappear(dt)
         elif self.state == State.WAIT:
-            # self.decide_stair(snowman.stair, self.stair, *trick_stairs)
             if snowman.climbing:
-                if self.reset:
-                    print('reset', self.__class__.__name__, 'snowman stair', snowman.stair, snowman.climbing)
-                    self.reset = False
                 self.decide_stair(snowman.stair, *trick_stairs)
 
 
@@ -254,33 +250,20 @@ class CircularSaws(EmbeddedGimmiks):
 
         return saw
 
-    def start_xy(self, stair_center, key, from_center):
-        if key == 'left':
-            x = stair_center.x - 0.1
-        else:
-            x = stair_center.x + 0.1
-
-        if from_center:
-            y = stair_center.y
-        else:
-            if key == 'left':
-                y = self.stairs.left_end - 0.5
-            else:
-                y = self.stairs.right_end + 0.5
-
-        return x, y
-
     def setup(self, chara_pos):
         stair_center = self.stairs.center(self.stair)
         self.z_start = stair_center.z - 1.2
         self.z_stop = stair_center.z
 
-        from_center = False
+        y = None
         if self.stairs.right_end / 2 < chara_pos.y < self.stairs.left_end / 2:
-            from_center = True
+            y = stair_center.y
 
         for key, saw in self.saws.items():
-            x, y = self.start_xy(stair_center, key, from_center)
+            x = stair_center.x - 0.1 if key == 'left' else stair_center.x + 0.1
+            if y is None:
+                y = self.stairs.left_end - 0.5 if key == 'left' else self.stairs.right_end + 0.5
+
             pos = Point3(x, y, self.z_start)
             if saw:
                 saw.setPos(pos)

@@ -274,7 +274,6 @@ class TestShape(NodePath):
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-
         maker = SphereGeomMaker()
         node = maker.make_geomnode()
 
@@ -295,14 +294,13 @@ class TestShape(NodePath):
         # self.setColor(Colors.RED.value)
 
 
-class Game(ShowBase):
+class Test(ShowBase):
 
     def __init__(self):
         super().__init__()
         self.disableMouse()
         self.camera.setPos(10, 10, 10)  # 20, -20, 5
         self.camera.lookAt(0, 0, 0)
-
         self.world = BulletWorld()
 
         # *******************************************
@@ -310,8 +308,6 @@ class Game(ShowBase):
         self.world.setDebugNode(collide_debug.node())
         collide_debug.show()
         # *******************************************
-
-        # icosahedron
 
         shape = TestShape()
         self.world.attachRigidBody(shape.node())
@@ -325,13 +321,6 @@ class Game(ShowBase):
 
 
 if __name__ == '__main__':
-    # base = ShowBase()
-    # base.disableMouse()
-    # base.camera.setPos(10, 10, 10)  # 20, -20, 5
-    # base.camera.lookAt(0, 0, 0)  # 5, 0, 3
-    # # scene = Scene()
-    # test()
-    # base.run()
-    game = Game()
-    game.run()
+    test = Test()
+    test.run()
 

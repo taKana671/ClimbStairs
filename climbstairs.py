@@ -8,7 +8,7 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBaseGlobal import globalClock
 
 from scene import Scene
-from gimmicks import Polyhedrons, Cones, CircularSaws, Spheres
+from gimmicks import Polyhedrons, Spheres, Cones, CircularSaws
 from characters import SnowMan
 
 
@@ -26,16 +26,16 @@ class ClimbStairs(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
 
-        self.snowman = SnowMan(Point3(-1, 2, 0), self.world, self.scene.stairs)
+        self.snowman = SnowMan(Point3(-1, 0, 0), self.world)
         self.camera_before_x = self.snowman.getX()
 
         self.cones = Cones(self.scene.stairs, self.world)
         self.saws = CircularSaws(self.scene.stairs, self.world)
         self.polhs = Polyhedrons(self.scene.stairs, self.world, 50)
         self.spheres = Spheres(self.scene.stairs, self.world, 50)
+
         self.timer = 0
         self.toggle = True
-        self.reset = False
 
         self.display = OnscreenText(
             text='',
@@ -47,9 +47,9 @@ class ClimbStairs(ShowBase):
         )
 
         # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # *******************************************
 
         self.accept('escape', sys.exit)
@@ -79,13 +79,11 @@ class ClimbStairs(ShowBase):
 
         self.snowman.update(dt)
         self.display.setText(str(self.snowman.stair))
-        # print('self.snowman', self.snowman.stair)
         # increase stair
         if self.scene.stairs.top_stair - self.snowman.stair < 14:
             self.scene.stairs.increase()
         # move camera with the snowman.
         self.move_camera()
-
         # control gimmicks
         if task.time > self.timer:
             if self.toggle:
