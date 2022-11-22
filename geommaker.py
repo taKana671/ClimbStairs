@@ -274,14 +274,14 @@ class TestShape(NodePath):
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-        maker = SphereGeomMaker()
-        node = maker.make_geomnode()
+        # maker = SphereGeomMaker()
+        # node = maker.make_geomnode()
 
         # maker = PyramidGeomMaker()
         # node = maker.make_geomnode()
 
-        # creater = PolyhedronGeomMaker()
-        # node = creater.make_geomnode('triaugmented_hexagonal_prism')
+        creater = PolyhedronGeomMaker()
+        node = creater.make_geomnode('elongated_pentagonal_rotunda')
 
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
