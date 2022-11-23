@@ -313,7 +313,7 @@ class Test(ShowBase):
         self.world.attachRigidBody(shape.node())
         shape.hprInterval(8, (360, 720, 360)).loop()
         self.taskMgr.add(self.update, 'update')
-
+   
     def update(self, task):
         dt = globalClock.getDt()
         self.world.doPhysics(dt)

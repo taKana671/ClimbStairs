@@ -343,7 +343,7 @@ class Piles(EmbeddedGimmiks):
 
     def setup(self, chara_pos):
         stair_center = self.stairs.center(self.stair)
-        self.z_start = stair_center.z - 1
+        self.z_start = stair_center.z - 1.3
         self.z_stop = stair_center.z
 
         pos = Point3(stair_center.x, chara_pos.y, self.z_start)

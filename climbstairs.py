@@ -48,9 +48,9 @@ class ClimbStairs(ShowBase):
         )
 
         # *******************************************
-        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        # self.world.setDebugNode(collide_debug.node())
-        # collide_debug.show()
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
         # *******************************************
 
         self.accept('escape', sys.exit)
