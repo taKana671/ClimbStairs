@@ -11,3 +11,16 @@
 
 # Environment
 * Windows10
+
+# Usage
+* Execute a command below on your command line.
+```
+>>>python climbstairs.py
+```
+
+# Controls:
+* Press [enter] + [up arrow] keys to go up.
+* Press [left arrow] key to go to the left.
+* Press [right arrow] key to go to the right.
+* Press [down arrow] key to go back.
+* Press [enter] key to jump.
