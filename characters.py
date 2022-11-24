@@ -79,9 +79,9 @@ class Characters(NodePath):
                 break
 
     def calc_climbed_steps(self):
-        """Calculate the stair on which snowman is.
-           Because the gap between the steps is 1 and the z of snowman's center
-           is about 0.95, int(z) means the stair on which character is.
+        """Calculate the stair on which the character is.
+           Because the gap between the steps is 1 and the z of character's center
+           is about 0.95, int(z) means the stair on which the character is.
         """
         if self.node().isOnGround():
             if (z := int(self.getPos().z)) != self.stair:
@@ -89,11 +89,11 @@ class Characters(NodePath):
                 self.stair = z
 
     def is_jump(self, stair):
-        """Return True if snowman is jumping onto the next stair
+        """Return True if the character is jumping onto the next stair
            in which gimmicks are embeded.
            Args:
-                stair: index of stair in which gimmicks are embeded.
-                The index of scene.stairs starts with 0, but snowman's stair starts with 1.
+                stair: index of the stair in which gimmicks are embeded. The index of
+                scene.stairs starts with 0, but the character's stair starts with 1.
         """
         if stair == self.stair and \
                 not self.node().isOnGround():

@@ -25,15 +25,16 @@ class ClimbStairs(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
         self.scene = Scene(self.world)
 
-        self.snowman = SnowMan(Point3(-1, 0, 0), self.world)
-        self.camera_before_x = self.snowman.getX()
+        self.climber = SnowMan(Point3(-1, 0, 0), self.world)
+        self.camera_before_x = self.climber.getX()
 
         self.cones = Cones(self.scene.stairs, self.world)
         self.saws = CircularSaws(self.scene.stairs, self.world)
+        self.piles = Piles(self.scene.stairs, self.world)
         self.polhs = Polyhedrons(self.scene.stairs, self.world, 50)
         self.spheres = Spheres(self.scene.stairs, self.world, 50)
-        self.piles = Piles(self.scene.stairs, self.world)
 
+        self.interval = None
         self.timer = 0
         self.toggle = True
 
@@ -56,15 +57,15 @@ class ClimbStairs(ShowBase):
         self.taskMgr.add(self.update, 'update')
 
     def move_camera(self):
-        """Change camera x and z with the movement of snowman.
+        """Change camera x and z with the movement of a climber.
         """
-        if (distance := self.snowman.getX() - self.camera_before_x) != 0:
-            self.camera_before_x = self.snowman.getX()
+        if (distance := self.climber.getX() - self.camera_before_x) != 0:
+            self.camera_before_x = self.climber.getX()
             pos = self.camera.getPos() + Vec3(distance, 0, distance)
             self.camera.setPos(pos)
 
     def clean_floor(self):
-        """Remove polhs and spheres collided with the floor 3 seconds later.
+        """Remove polhs and spheres 3 seconds later than they collided with the floor.
         """
         result = self.world.contactTest(self.scene.floor.node())
         for con in result.getContacts():
@@ -74,28 +75,40 @@ class ClimbStairs(ShowBase):
                     self.taskMgr.doMethodLater(
                         3, func, name, extraArgs=[name], appendTask=True)
 
+    def decide_interval(self):
+        if self.climber.stair >= 40:
+            return 1
+        elif self.climber.stair >= 20:
+            return 2
+        return 3
+
     def update(self, task):
         dt = globalClock.getDt()
 
-        self.snowman.update(dt)
-        self.display.setText(str(self.snowman.stair))
+        self.climber.update(dt)
+        self.display.setText(str(self.climber.stair))
+
         # increase stair
-        if self.scene.stairs.top_stair - self.snowman.stair < 14:
+        if self.scene.stairs.top_stair - self.climber.stair < 14:
             self.scene.stairs.increase()
-        # move camera with the snowman.
+
+        # move camera with the climber.
         self.move_camera()
+
         # control gimmicks
+        self.interval = self.decide_interval()
+
         if task.time > self.timer:
             if self.toggle:
-                self.polhs.drop(self.snowman.stair, self.snowman.getPos())
+                self.polhs.drop(self.climber)
             else:
-                self.spheres.drop(self.snowman.stair, self.snowman.getPos())
+                self.spheres.drop(self.climber)
             self.toggle = not self.toggle
-            self.timer += 3
+            self.timer = task.time + self.interval
 
-        self.cones.run(dt, self.snowman, self.saws.stair, self.piles.stair)
-        self.saws.run(dt, self.snowman, self.cones.stair, self.piles.stair)
-        self.piles.run(dt, self.snowman, self.cones.stair, self.saws.stair)
+        self.cones.run(dt, self.climber, self.saws.stair, self.piles.stair)
+        self.saws.run(dt, self.climber, self.cones.stair, self.piles.stair)
+        self.piles.run(dt, self.climber, self.cones.stair, self.saws.stair)
 
         # remove polyhedrons and spheres on the floor.
         self.clean_floor()

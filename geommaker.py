@@ -280,7 +280,7 @@ class TestShape(NodePath):
         # node = maker.make_geomnode()
 
         creater = PolyhedronGeomMaker()
-        node = creater.make_geomnode('elongated_pentagonal_rotunda')
+        node = creater.make_geomnode('icosahedron')
 
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
