@@ -50,12 +50,12 @@ class DropGimmicks(GimmickRoot):
         self.stairs = stairs
         self.holder = Holder([None for _ in range(capacity)])
 
-    def drop(self, snowman_stair, snowman_pos):
+    def drop(self, climber):
         if (index := self.holder.find_space()) is not None:
-            drop_stair = snowman_stair + 11
+            drop_stair = climber.stair + 11
             stair_center = self.stairs.center(drop_stair)
 
-            pos = Point3(stair_center.x, snowman_pos.y, stair_center.z + 3)
+            pos = Point3(stair_center.x, climber.getY(), stair_center.z + 3)
             self.drop_start(index, pos)
 
     def delete(self, name, task):
@@ -146,12 +146,13 @@ class EmbeddedGimmiks(GimmickRoot):
 
         # print(self.__class__.__name__, self.stair, 'start:', start, 'end', start + 15)
 
-    def run(self, dt, snowman, *trick_stairs):
+    def run(self, dt, climber, *trick_stairs):
+
         if self.state == State.READY:
-            if not snowman.climbing:
+            if not climber.climbing:
                 self.state = State.WAIT
-            elif snowman.is_jump(self.stair):
-                self.setup(snowman.getPos())
+            elif climber.is_jump(self.stair):
+                self.setup(climber.getPos())
         elif self.state == State.APPEAR:
             self.appear(dt)
         elif self.state == State.STAY:
@@ -161,8 +162,8 @@ class EmbeddedGimmiks(GimmickRoot):
         elif self.state == State.DISAPPEAR:
             self.disappear(dt)
         elif self.state == State.WAIT:
-            if snowman.climbing:
-                self.decide_stair(snowman.stair, *trick_stairs)
+            if climber.climbing:
+                self.decide_stair(climber.stair, *trick_stairs)
 
 
 class Cones(EmbeddedGimmiks):
