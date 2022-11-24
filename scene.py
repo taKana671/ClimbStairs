@@ -98,7 +98,7 @@ class Floor(NodePath):
         card = CardMaker('card')
         card.setFrame(-1, 1, -1, 1)
 
-        for y in range(start - 3, end, 2):
+        for y in range(start + 1, end + 1, 2):
             for x in range(start - 3, end + 3, 2):
                 g = model.attachNewNode(card.generate())
                 g.setP(-90)
