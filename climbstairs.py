@@ -8,8 +8,8 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBaseGlobal import globalClock
 
 from scene import Scene
-from gimmicks import Polyhedrons, Spheres, Cones, CircularSaws, Piles
 from characters import SnowMan
+from gimmicks import Polyhedrons, Spheres, Cones, CircularSaws, Piles
 
 
 class ClimbStairs(ShowBase):
@@ -19,7 +19,6 @@ class ClimbStairs(ShowBase):
         self.disableMouse()
         # self.camera.setPos(Point3(-14.6, -16, 10.8))
         self.camera.setPos(Point3(-14.6, -15, 11))
-        # self.camera.lookAt(5, 7, 4)
         self.camera.setHpr(Vec3(-41, -18, 0))
 
         self.world = BulletWorld()
@@ -48,9 +47,9 @@ class ClimbStairs(ShowBase):
         )
 
         # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
+        # collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        # self.world.setDebugNode(collide_debug.node())
+        # collide_debug.show()
         # *******************************************
 
         self.accept('escape', sys.exit)

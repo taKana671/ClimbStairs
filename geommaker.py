@@ -115,7 +115,6 @@ class PolyhedronGeomMaker(GeomMaker):
         for face, rgba in self.faces():
             for pt in face:
                 vertex.addData3(pt)
-                # normal.addData3(pt.normalize())
                 normal.addData3(pt.normalized())
                 color.addData4f(rgba)
                 # texcoord.addData2f(tex)
@@ -313,7 +312,7 @@ class Test(ShowBase):
         self.world.attachRigidBody(shape.node())
         shape.hprInterval(8, (360, 720, 360)).loop()
         self.taskMgr.add(self.update, 'update')
-   
+
     def update(self, task):
         dt = globalClock.getDt()
         self.world.doPhysics(dt)
@@ -323,4 +322,3 @@ class Test(ShowBase):
 if __name__ == '__main__':
     test = Test()
     test.run()
-

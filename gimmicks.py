@@ -23,12 +23,6 @@ class Holder(UserList):
     def __init__(self, data):
         super().__init__(data)
 
-    def id(self):
-        for i, item in enumerate(self.data):
-            if not item:
-                return i
-        return None
-
     def pop(self, i):
         item = self.data[i]
         self.data[i] = None
@@ -143,14 +137,14 @@ class EmbeddedGimmiks(GimmickRoot):
 
     def decide_stair(self, start, *stairs):
         """Decide a stair in which to make a gimmick. The stair is between
-           start and the 10th from the start.
+           start and the 15th from the start.
         """
         self.stair = random.choice(
             [n for n in range(start, start + 15) if n not in stairs]
         )
         self.state = State.READY
 
-        print(self.__class__.__name__, self.stair, 'start:', start, 'end', start + 15)
+        # print(self.__class__.__name__, self.stair, 'start:', start, 'end', start + 15)
 
     def run(self, dt, snowman, *trick_stairs):
         if self.state == State.READY:
@@ -182,7 +176,7 @@ class Cones(EmbeddedGimmiks):
 
     def make_cone(self, i, pos):
         geomnode = self.cone_maker.make_geomnode()
-        cone = Pyramid(geomnode, f'cones_{i}', pos)
+        cone = Pyramid(geomnode, f'cones_{i}')
         self.world.attachRigidBody(cone.node())
 
         return cone
@@ -196,11 +190,12 @@ class Cones(EmbeddedGimmiks):
         for i, cone in enumerate(self.cones):
             y = self.stairs.left_end - (i + 0.5)
             pos = Point3(self.x_start, y, z)
-            if cone:
-                cone.setPos(pos)
-            else:
+
+            if not cone:
                 cone = self.make_cone(i, pos)
                 self.cones[i] = cone
+
+            cone.setPos(pos)
             cone.reparentTo(self)
 
         self.state = State.APPEAR
@@ -208,10 +203,9 @@ class Cones(EmbeddedGimmiks):
     def appear(self, dt):
         distance = dt
         for cone in self.cones:
-            x = cone.getX() - distance
-            cone.setX(x)
+            cone.setX(cone.getX() - distance)
 
-        if x < self.x_stop:
+        if self.cones[-1].getX() < self.x_stop:
             self.timer = globalClock.getFrameCount() + 30
             self.state = State.STAY
 
@@ -223,10 +217,9 @@ class Cones(EmbeddedGimmiks):
     def disappear(self, dt):
         distance = dt
         for cone in self.cones:
-            x = cone.getX() + distance
-            cone.setX(x)
+            cone.setX(cone.getX() + distance)
 
-        if x > self.x_start:
+        if self.cones[-1].getX() > self.x_start:
             self.finish()
             self.state = State.WAIT
 
@@ -243,9 +236,9 @@ class CircularSaws(EmbeddedGimmiks):
         self.colors = (RED, BLUE, LIGHT_GRAY)
         self.saws = dict(left=None, right=None)
 
-    def make_saw(self, key, pos):
+    def make_saw(self, key):
         geom_node = self.creater.make_geomnode('octagon_prism', self.colors)
-        saw = SlimPrism(geom_node, f'saws_{key}', pos)
+        saw = SlimPrism(geom_node, f'saws_{key}')
         self.world.attachRigidBody(saw.node())
 
         return saw
@@ -272,11 +265,12 @@ class CircularSaws(EmbeddedGimmiks):
         for key, saw in self.saws.items():
             x, y = self.start_xy(stair_center, chara_pos, key)
             pos = Point3(x, y, self.z_start)
-            if saw:
-                saw.setPos(pos)
-            else:
-                saw = self.make_saw(key, pos)
+
+            if not saw:
+                saw = self.make_saw(key)
                 self.saws[key] = saw
+
+            saw.setPos(pos)
             saw.reparentTo(self)
 
         self.state = State.APPEAR
@@ -284,10 +278,9 @@ class CircularSaws(EmbeddedGimmiks):
     def appear(self, dt):
         distance = dt * 3
         for saw in self.saws.values():
-            z = saw.getZ() + distance
-            saw.setZ(z)
+            saw.setZ(saw.getZ() + distance)
 
-        if z > self.z_stop:
+        if self.saws['right'].getZ() > self.z_stop:
             self.state = State.MOVE
 
     def move(self, dt):
@@ -311,12 +304,10 @@ class CircularSaws(EmbeddedGimmiks):
 
     def disappear(self, dt):
         distance = dt * 2
-
         for saw in self.saws.values():
-            z = saw.getZ() - distance
-            saw.setZ(z)
+            saw.setZ(saw.getZ() - distance)
 
-        if z < self.z_start:
+        if self.saws['right'].getZ() < self.z_start:
             self.finish()
             self.state = State.WAIT
 
@@ -334,9 +325,9 @@ class Piles(EmbeddedGimmiks):
         self.colors = (BLUE, RED)
         self.timer = 0
 
-    def make_cone(self, i, pos):
+    def make_cone(self, index):
         geomnode = self.polh_maker.make_geomnode('octahedron', self.colors)
-        pile = Octahedron(geomnode, f'piles_{i}', pos)
+        pile = Octahedron(geomnode, f'piles_{index}')
         self.world.attachRigidBody(pile.node())
 
         return pile
@@ -357,17 +348,17 @@ class Piles(EmbeddedGimmiks):
 
         for i, pile in enumerate(self.piles):
             pos = positions[i]
-            if pile:
-                pile.setPos(pos)
-            else:
-                pile = self.make_cone(i, pos)
+
+            if not pile:
+                pile = self.make_cone(i)
                 self.piles[i] = pile
+
+            pile.setPos(pos)
             pile.reparentTo(self)
 
         self.state = State.APPEAR
 
-    def move(self, pile, z, angle):
-        pile.setZ(z)
+    def rotate(self, pile, angle):
         q = Quat()
         axis = Vec3.up()
         q.setFromAxisAngle(angle, axis.normalized())
@@ -378,10 +369,10 @@ class Piles(EmbeddedGimmiks):
         angle = dt * 1000
 
         for pile in self.piles:
-            z = pile.getZ() + distance
-            self.move(pile, z, angle)
+            pile.setZ(pile.getZ() + distance)
+            self.rotate(pile, angle)
 
-        if z > self.z_stop:
+        if self.piles[-1].getZ() > self.z_stop:
             self.timer = globalClock.getFrameCount() + 30
             self.state = State.STAY
 
@@ -395,10 +386,10 @@ class Piles(EmbeddedGimmiks):
         angle = dt * 1000
 
         for pile in self.piles:
-            z = pile.getZ() - distance
-            self.move(pile, z, angle)
+            pile.setZ(pile.getZ() - distance)
+            self.rotate(pile, angle)
 
-        if z < self.z_start:
+        if self.piles[-1].getZ() < self.z_start:
             self.finish()
             self.state = State.WAIT
 
@@ -425,7 +416,7 @@ class Polyhedron(NodePath):
 
 class Pyramid(NodePath):
 
-    def __init__(self, geom_node, node_name, pos):
+    def __init__(self, geom_node, node_name):
         super().__init__(BulletRigidBodyNode(node_name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
@@ -439,13 +430,12 @@ class Pyramid(NodePath):
         self.setColor(LIGHT_GRAY)
         self.setScale(0.7)
         self.setR(-90)
-        self.setPos(pos)
         self.node().setKinematic(True)
 
 
 class SlimPrism(NodePath):
 
-    def __init__(self, geom_node, node_name, pos):
+    def __init__(self, geom_node, node_name):
         super().__init__(BulletRigidBodyNode(node_name))
         self.np = self.attachNewNode(geom_node)
         self.np.setTwoSided(True)
@@ -458,7 +448,6 @@ class SlimPrism(NodePath):
         self.setCollideMask(BitMask32.bit(2))
         self.setScale(0.5, 0.5, 0.3)
         self.setHpr(90, 90, 0)
-        self.setPos(pos)
         self.node().setKinematic(True)
 
 
@@ -480,7 +469,7 @@ class Sphere(NodePath):
 
 class Octahedron(NodePath):
 
-    def __init__(self, geom_node, node_name, pos):
+    def __init__(self, geom_node, node_name):
         super().__init__(BulletRigidBodyNode(node_name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
@@ -491,5 +480,4 @@ class Octahedron(NodePath):
         self.node().setRestitution(0.7)
         self.setCollideMask(BitMask32.bit(2))
         self.setScale(0.3, 0.3, 1.2)
-        self.setPos(pos)
         self.node().setKinematic(True)

@@ -4,6 +4,8 @@ from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import NodePath, TransformState
 from direct.showbase.InputStateGlobal import inputState
 
+SNOWMAN_PATH = 'models/snowman/snowman'
+
 
 class Characters(NodePath):
 
@@ -29,14 +31,13 @@ class Characters(NodePath):
         inputState.watchWithModifiers('turn_left', 'w')
 
     def control_character(self):
+        speed = Vec3(0, 0, 0)
+        omega = 0.0
+
         if inputState.isSet('jump'):
             self.node().setMaxJumpHeight(2.0)  # 5.0
             self.node().setJumpSpeed(5.0)      # 8.0
             self.node().doJump()
-
-        speed = Vec3(0, 0, 0)
-        omega = 0.0
-
         if inputState.isSet('left'):
             speed.setX(2.0)
         if inputState.isSet('right'):
@@ -46,9 +47,9 @@ class Characters(NodePath):
         if inputState.isSet('backward'):
             speed.setY(2.0)
         if inputState.isSet('turn_right'):
-            omega = -120
+            omega += -120
         if inputState.isSet('turn_left'):
-            omega = 120
+            omega += 120
 
         self.node().setAngularMovement(omega)
         self.node().setLinearMovement(speed, True)
@@ -70,7 +71,6 @@ class Characters(NodePath):
             elif prefix == 'piles':
                 go_back += 2
 
-            # print('collision', nd_name)
             if go_back > 0:
                 self.back_to = self.stair - 1 - go_back
                 if self.back_to < -1:
@@ -79,8 +79,8 @@ class Characters(NodePath):
                 break
 
     def calc_climbed_steps(self):
-        """Calculate the stair on which character is.
-           Because the gap between the steps is 1 and the z of character's center
+        """Calculate the stair on which snowman is.
+           Because the gap between the steps is 1 and the z of snowman's center
            is about 0.95, int(z) means the stair on which character is.
         """
         if self.node().isOnGround():
@@ -88,15 +88,12 @@ class Characters(NodePath):
                 self.stair_before = self.stair
                 self.stair = z
 
-        # if self.node().isOnGround():
-        #     self.stair = int(self.getPos().z)
-
     def is_jump(self, stair):
-        """Return True if character is jumping onto the next stair
+        """Return True if snowman is jumping onto the next stair
            in which gimmicks are embeded.
            Args:
                 stair: index of stair in which gimmicks are embeded.
-                The index of stairs starts with 0, but character's stair starts with 1.
+                The index of scene.stairs starts with 0, but snowman's stair starts with 1.
         """
         if stair == self.stair and \
                 not self.node().isOnGround():
@@ -127,7 +124,7 @@ class SnowMan(Characters):
         height, radius = 7.0, 1.5
         shape = BulletCapsuleShape(radius, height - 2 * radius, ZUp)
         super().__init__(world, shape, 'snowman')
-        model = base.loader.loadModel('models/snowman/snowman')
+        model = base.loader.loadModel(SNOWMAN_PATH)
         model.setTransform(TransformState.makePos(Vec3(0, 0, -3)))
         model.reparentTo(self)
         self.setPos(pos)
