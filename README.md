@@ -6,7 +6,7 @@
 ![687](https://user-images.githubusercontent.com/48859041/203213201-58300241-d140-4992-a02b-af26e36a0546.png)
 
 # Requirements
-* Python 3.9
+* Python 3.11
 * Panda3D 1.10.11
 
 # Environment
