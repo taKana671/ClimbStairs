@@ -168,7 +168,7 @@ class PyramidGeomMaker(GeomMaker):
             start += vertices_num
 
     def make_geomnode(self):
-        format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
+        format_ = GeomVertexFormat.getV3n3cpt2()   # getV3n3c4()
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
         vdata.setNumRows(self.cycle + 1)
         vertex = GeomVertexWriter(vdata, 'vertex')
@@ -242,7 +242,7 @@ class SphereGeomMaker(GeomMaker):
                 yield (subdiv_face, self.colors[idx])
 
     def _make_geomnode(self):
-        format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
+        format_ = GeomVertexFormat.getV3n3cpt2()   # getV3n3c4()
         vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
         vdata.setNumRows(self.num_rows())
         vertex = GeomVertexWriter(vdata, 'vertex')

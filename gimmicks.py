@@ -148,22 +148,23 @@ class EmbeddedGimmiks(GimmickRoot):
 
     def run(self, dt, climber, *trick_stairs):
 
-        if self.state == State.READY:
-            if not climber.climbing:
-                self.state = State.WAIT
-            elif climber.is_jump(self.stair):
-                self.setup(climber.getPos())
-        elif self.state == State.APPEAR:
-            self.appear(dt)
-        elif self.state == State.STAY:
-            self.stay()
-        elif self.state == State.MOVE:
-            self.move(dt)
-        elif self.state == State.DISAPPEAR:
-            self.disappear(dt)
-        elif self.state == State.WAIT:
-            if climber.climbing:
-                self.decide_stair(climber.stair, *trick_stairs)
+        match self.state:
+            case State.READY:
+                if not climber.climbing:
+                    self.state = State.WAIT
+                elif climber.is_jump(self.stair):
+                    self.setup(climber.getPos())
+            case State.APPEAR:
+                self.appear(dt)
+            case State.STAY:
+                self.stay()
+            case State.MOVE:
+                self.move(dt)
+            case State.DISAPPEAR:
+                self.disappear(dt)
+            case State.WAIT:
+                if climber.climbing:
+                    self.decide_stair(climber.stair, *trick_stairs)
 
 
 class Cones(EmbeddedGimmiks):
@@ -405,7 +406,6 @@ class Polyhedron(NodePath):
         super().__init__(BulletRigidBodyNode(name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
-        np.reparentTo(self)
         shape = BulletConvexHullShape()
         shape.addGeom(geom_node.getGeom(0))
         self.node().addShape(shape)
@@ -421,13 +421,11 @@ class Pyramid(NodePath):
         super().__init__(BulletRigidBodyNode(node_name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
-        np.reparentTo(self)
         shape = BulletConvexHullShape()
         shape.addGeom(geom_node.getGeom(0))
         self.node().addShape(shape)
         self.node().setRestitution(0.7)
         self.setCollideMask(BitMask32.bit(2))
-        # self.setCollideMask(BitMask32.allOn())
         self.setColor(LIGHT_GRAY)
         self.setScale(0.7)
         self.setR(-90)
@@ -440,12 +438,10 @@ class SlimPrism(NodePath):
         super().__init__(BulletRigidBodyNode(node_name))
         self.np = self.attachNewNode(geom_node)
         self.np.setTwoSided(True)
-        self.np.reparentTo(self)
         shape = BulletConvexHullShape()
         shape.addGeom(geom_node.getGeom(0))
         self.node().addShape(shape)
         self.node().setRestitution(0.7)
-        # self.setCollideMask(BitMask32.allOn())
         self.setCollideMask(BitMask32.bit(2))
         self.setScale(0.5, 0.5, 0.3)
         self.setHpr(90, 90, 0)
@@ -458,7 +454,6 @@ class Sphere(NodePath):
         super().__init__(BulletRigidBodyNode(node_name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
-        np.reparentTo(self)
         end, tip = np.getTightBounds()
         size = tip - end
         self.node().addShape(BulletSphereShape(size.z / 2))
@@ -474,7 +469,6 @@ class Octahedron(NodePath):
         super().__init__(BulletRigidBodyNode(node_name))
         np = self.attachNewNode(geom_node)
         np.setTwoSided(True)
-        np.reparentTo(self)
         shape = BulletConvexHullShape()
         shape.addGeom(geom_node.getGeom(0))
         self.node().addShape(shape)
