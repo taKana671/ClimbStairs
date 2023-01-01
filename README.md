@@ -19,6 +19,7 @@
 ```
 
 # Controls:
+* Press [Esc] to quit.
 * Press [enter] + [up arrow] keys to go up.
 * Press [left arrow] key to go to the left.
 * Press [right arrow] key to go to the right.
