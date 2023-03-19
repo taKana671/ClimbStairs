@@ -1,10 +1,11 @@
+import array
 import math
 import random
 from enum import Enum
 
 from panda3d.core import Vec3, LColor
-from panda3d.core import GeomVertexFormat, GeomVertexData
-from panda3d.core import Geom, GeomTriangles, GeomVertexWriter
+from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
+from panda3d.core import Geom, GeomTriangles
 from panda3d.core import GeomNode
 
 from panda3d.core import BitMask32
@@ -42,7 +43,7 @@ class GeomMaker:
         return (start, start + 1, start + 2)
 
     def square(self, start):
-        for x, y, z in [(0, 1, 3), (1, 2, 3)]:
+        for x, y, z in [(2, 1, 0), (0, 3, 2)]:
             yield (start + x, start + y, start + z)
 
     def polygon(self, start, vertices_num):
@@ -52,29 +53,42 @@ class GeomMaker:
             else:
                 yield (start + i - 1, start, start + i)
 
+    def prim_indices(self, start, num):
+        match num:
+            case 3:
+                yield self.triangle(start)
+            case 4:
+                yield from self.square(start)
+            case _:
+                yield from self.polygon(start, num)
+
 
 class PolyhedronGeomMaker(GeomMaker):
 
     def __init__(self):
         self.idx = 0
         self.polh_names = tuple(POLYHEDRONS.keys())
+        self.make_format()
+
+    def make_format(self):
+        arr_format = GeomVertexArrayFormat()
+        arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+        arr_format.addColumn('color', 4, Geom.NTFloat32, Geom.CColor)
+        self.format_ = GeomVertexFormat.registerFormat(arr_format)
 
     def next_geomnode(self):
         if self.idx >= len(self.polh_names):
             self.idx = 0
         polh_name = self.polh_names[self.idx]
         self.idx += 1
-
-        self.data = POLYHEDRONS[polh_name]
-        self.colors = self.select_colors()
-        geomnode = self._make_geomnode()
-        return geomnode
+        geom_node = self.make_geomnode(polh_name)
+        return geom_node
 
     def make_geomnode(self, key, colors=None):
         self.data = POLYHEDRONS[key]
         self.colors = colors if colors else self.select_colors()
-        node = self._make_geomnode()
-        return node
+        geom_node = self._make_geomnode()
+        return geom_node
 
     def faces(self):
         vertices = self.data['vertices']
@@ -82,7 +96,7 @@ class PolyhedronGeomMaker(GeomMaker):
         color_pattern = self.data['color_pattern']
 
         for idxes, n in zip(faces, color_pattern):
-            yield ((Vec3(vertices[i]) for i in idxes), self.colors[n])
+            yield ([vertices[i] for i in idxes], self.colors[n])
 
     def select_colors(self):
         n = max(self.data['color_pattern'])
@@ -91,41 +105,32 @@ class PolyhedronGeomMaker(GeomMaker):
     def num_rows(self):
         return sum(len(face) for face in self.data['faces'])
 
-    def prim_vertices(self):
-        start = 0
-        for face in self.data['faces']:
-            if (vertices_num := len(face)) == 3:
-                yield self.triangle(start)
-            elif vertices_num == 4:
-                yield from self.square(start)
-            elif vertices_num >= 5:
-                yield from self.polygon(start, vertices_num)
-            start += vertices_num
-
     def _make_geomnode(self):
-        format_ = GeomVertexFormat.getV3n3cpt2()  # getV3n3c4
-        vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-        vdata.setNumRows(self.num_rows())
-
-        vertex = GeomVertexWriter(vdata, 'vertex')
-        normal = GeomVertexWriter(vdata, 'normal')
-        color = GeomVertexWriter(vdata, 'color')
-        # texcoord = GeomVertexWriter(vdata, 'texcoord')
+        vdata_values = array.array('f', [])
+        prim_indices = array.array("H", [])
+        start = 0
 
         for face, rgba in self.faces():
             for pt in face:
-                vertex.addData3(pt)
-                # normal.addData3(pt.normalize())
-                normal.addData3(pt.normalized())
-                color.addData4f(rgba)
-                # texcoord.addData2f(tex)
+                vdata_values.extend(pt)
+                vdata_values.extend(rgba)
+
+            for indices in self.prim_indices(start, len(face)):
+                prim_indices.extend(indices)
+            start += len(face)
+
+        vdata = GeomVertexData('polyhedron', self.format_, Geom.UHStatic)
+        vdata.uncleanSetNumRows(self.num_rows())
+        vdata_mem = memoryview(vdata.modifyArray(0)).cast('B').cast('f')
+        vdata_mem[:] = vdata_values
+
+        prim = GeomTriangles(Geom.UHStatic)
+        prim_array = prim.modifyVertices()
+        prim_array.uncleanSetNumRows(len(prim_indices))
+        prim_mem = memoryview(prim_array).cast('B').cast('H')
+        prim_mem[:] = prim_indices
 
         node = GeomNode('geomnode')
-        prim = GeomTriangles(Geom.UHStatic)
-
-        for vertices in self.prim_vertices():
-            prim.addVertices(*vertices)
-
         geom = Geom(vdata)
         geom.addPrimitive(prim)
         node.addGeom(geom)
@@ -139,17 +144,25 @@ class PyramidGeomMaker(GeomMaker):
         self.cone_length = length
         self.cycle = cycle
         self.cone_radius = radius
-        self.faces = [face for face in self.get_faces()]
+        self.make_format()
 
-    def get_faces(self):
-        point = Vec3(0, 0, self.cone_length)
+    def make_format(self):
+        arr_format = GeomVertexArrayFormat()
+        arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+        self.format_ = GeomVertexFormat.registerFormat(arr_format)
+
+    def num_rows(self):
+        return self.cycle + 3 * self.cycle
+
+    def faces(self):
+        point = (0, 0, self.cone_length)
 
         bottom = []
         for i in range(self.cycle):
             theta = i * (2 * math.pi / self.cycle)
             x = self.cone_radius * math.sin(theta)
             y = self.cone_radius * math.cos(theta)
-            bottom.append(Vec3(x, y, 0))
+            bottom.append((x, y, 0.0))
 
         yield bottom
 
@@ -159,29 +172,29 @@ class PyramidGeomMaker(GeomMaker):
             else:
                 yield (point, bottom[i], bottom[i + 1])
 
-    def prim_vertices(self):
-        start = 0
-        for face in self.faces:
-            if (vertices_num := len(face)) == 3:
-                yield self.triangle(start)
-            else:
-                yield from self.polygon(start, vertices_num)
-            start += vertices_num
-
     def make_geomnode(self):
-        format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
-        vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-        vdata.setNumRows(self.cycle + 1)
-        vertex = GeomVertexWriter(vdata, 'vertex')
-        # color = GeomVertexWriter(vdata, 'color')
+        vdata_values = array.array('f', [])
+        prim_indices = array.array("H", [])
+        start = 0
 
-        for face in self.faces:
+        for face in self.faces():
             for pt in face:
-                vertex.addData3(pt)
+                vdata_values.extend(pt)
+
+            for indices in self.prim_indices(start, len(face)):
+                prim_indices.extend(indices)
+            start += len(face)
+
+        vdata = GeomVertexData('pyramid', self.format_, Geom.UHStatic)
+        vdata.uncleanSetNumRows(self.num_rows())
+        vdata_mem = memoryview(vdata.modifyArray(0)).cast('B').cast('f')
+        vdata_mem[:] = vdata_values
 
         prim = GeomTriangles(Geom.UHStatic)
-        for vertices in self.prim_vertices():
-            prim.addVertices(*vertices)
+        prim_array = prim.modifyVertices()
+        prim_array.uncleanSetNumRows(len(prim_indices))
+        prim_mem = memoryview(prim_array).cast('B').cast('H')
+        prim_mem[:] = prim_indices
 
         node = GeomNode('geomnode')
         geom = Geom(vdata)
@@ -196,6 +209,13 @@ class SphereGeomMaker(GeomMaker):
     def __init__(self):
         self.data = POLYHEDRONS['icosahedron']
         self.divnum = 3
+        self.make_format()
+
+    def make_format(self):
+        arr_format = GeomVertexArrayFormat()
+        arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+        arr_format.addColumn('color', 4, Geom.NTFloat32, Geom.CColor)
+        self.format_ = GeomVertexFormat.registerFormat(arr_format)
 
     def make_geomnode(self, colors=None):
         self.colors = colors if colors else Colors.select(2)
@@ -243,23 +263,29 @@ class SphereGeomMaker(GeomMaker):
                 yield (subdiv_face, self.colors[idx])
 
     def _make_geomnode(self):
-        format_ = GeomVertexFormat.getV3n3cpt2()   #getV3n3c4()
-        vdata = GeomVertexData('triangle', format_, Geom.UHStatic)
-        vdata.setNumRows(self.num_rows())
-        vertex = GeomVertexWriter(vdata, 'vertex')
-        color = GeomVertexWriter(vdata, 'color')
-
-        prim = GeomTriangles(Geom.UHStatic)
-
+        vdata_values = array.array('f', [])
+        prim_indices = array.array("H", [])
         start = 0
+
         for face, rgba in self.faces():
             for pt in face:
-                vertex.addData3(pt.normalized())
-                color.addData4f(rgba)
+                vdata_values.extend(pt.normalized())
+                vdata_values.extend(rgba)
 
-            prim_vertices = self.triangle(start)
-            prim.addVertices(*prim_vertices)
+            indices = self.triangle(start)
+            prim_indices.extend(indices)
             start += 3
+
+        vdata = GeomVertexData('sphere', self.format_, Geom.UHStatic)
+        vdata.uncleanSetNumRows(self.num_rows())
+        vdata_mem = memoryview(vdata.modifyArray(0)).cast('B').cast('f')
+        vdata_mem[:] = vdata_values
+
+        prim = GeomTriangles(Geom.UHStatic)
+        prim_array = prim.modifyVertices()
+        prim_array.uncleanSetNumRows(len(prim_indices))
+        prim_mem = memoryview(prim_array).cast('B').cast('H')
+        prim_mem[:] = prim_indices
 
         node = GeomNode('geomnode')
         geom = Geom(vdata)
@@ -269,23 +295,39 @@ class SphereGeomMaker(GeomMaker):
         return node
 
 
+class PolhModel(NodePath):
+
+    def __init__(self, geomnode):
+        super().__init__(geomnode)
+        self.setTwoSided(True)
+
+
+
 class TestShape(NodePath):
 
     def __init__(self):
         super().__init__(BulletRigidBodyNode('testShape'))
         self.reparentTo(base.render)
-        maker = SphereGeomMaker()
-        node = maker.make_geomnode()
+        # maker = SphereGeomMaker()
+        # node = maker.make_geomnode()
 
         # maker = PyramidGeomMaker()
         # node = maker.make_geomnode()
 
-        # creater = PolyhedronGeomMaker()
-        # node = creater.make_geomnode('triaugmented_hexagonal_prism')
-
+        creater = PolyhedronGeomMaker()
+        node = creater.make_geomnode('icosidodecahedron')
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
-        obj.reparentTo(self)
+        # obj = PolhModel(node)
+        # obj.reparentTo(self)
+
+        # node = creater.make_geomnode('cube')
+        # cube = NodePath(node)
+        # cube.setTwoSided(True)
+        # model = cube.copyTo(self)
+        
+
+        # obj.reparentTo(self) <= いらない
         shape = BulletConvexHullShape()
         shape.addGeom(node.getGeom(0))
         self.node().addShape(shape)
@@ -323,4 +365,3 @@ class Test(ShowBase):
 if __name__ == '__main__':
     test = Test()
     test.run()
-
