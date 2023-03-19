@@ -1,6 +1,4 @@
 import random
-
-from collections import UserList
 from enum import Enum, auto
 
 from panda3d.bullet import BulletRigidBodyNode
@@ -18,23 +16,6 @@ BLUE = LColor(0, 0, 1, 1)
 LIGHT_GRAY = LColor(0.75, 0.75, 0.75, 1)
 
 
-class Holder(UserList):
-
-    def __init__(self, data):
-        super().__init__(data)
-
-    def pop(self, i):
-        item = self.data[i]
-        self.data[i] = None
-        return item
-
-    def find_space(self):
-        for i, item in enumerate(self.data):
-            if not item:
-                return i
-        return None
-
-
 class GimmickRoot(NodePath):
 
     def __init__(self):
@@ -44,55 +25,60 @@ class GimmickRoot(NodePath):
 
 class DropGimmicks(GimmickRoot):
 
-    def __init__(self, stairs, world, capacity):
+    def __init__(self, stairs, world):
         super().__init__()
         self.world = world
         self.stairs = stairs
-        self.holder = Holder([None for _ in range(capacity)])
+        self.sphere_maker = Spheres()
+        self.polh_maker = Polyhedrons()
+        self.index = 0
 
-    def drop(self, climber):
-        if (index := self.holder.find_space()) is not None:
-            drop_stair = climber.stair + 11
-            stair_center = self.stairs.center(drop_stair)
+    def drop(self, climber, drop_sphere):
+        """Drops sphere or polyhedron.
+           Args:
+                climer: Characters class instance
+                drop_sphere: bool
+        """
+        drop_stair = climber.stair + 11
+        stair_center = self.stairs.center(drop_stair)
+        pos = Point3(stair_center.x, climber.getY(), stair_center.z + 3)
 
-            pos = Point3(stair_center.x, climber.getY(), stair_center.z + 3)
-            self.drop_start(index, pos)
+        if drop_sphere:
+            gimmick = self.sphere_maker.drop_start(self.index, pos)
+        else:
+            gimmick = self.polh_maker.drop_start(self.index)
 
-    def delete(self, name, task):
-        index = name.split('_')[1]
-        np = self.holder.pop(int(index))
-        self.world.remove(np.node())
+        gimmick.setPos(pos)
+        gimmick.reparentTo(self)
+        self.world.attachRigidBody(gimmick.node())
+        self.index += 1
+
+    def delete(self, node, task):
+        np = NodePath(node)
+        self.world.remove(node)
         np.removeNode()
+
         return task.done
 
-    def drop_start(self, index, pos):
-        """Override in subclasses.
-        """
-        raise NotImplementedError()
 
+class Polyhedrons:
 
-class Polyhedrons(DropGimmicks):
-
-    def __init__(self, stairs, world, capacity):
-        super().__init__(stairs, world, capacity)
+    def __init__(self):
         self.polh_maker = PolyhedronGeomMaker()
 
-    def drop_start(self, index, pos):
+    def drop_start(self, index):
         geomnode = self.polh_maker.next_geomnode()
         polh = Polyhedron(geomnode, f'polhs_{index}')
-        polh.setPos(pos)
-        polh.reparentTo(self)
-        self.holder[index] = polh
 
-        self.world.attachRigidBody(polh.node())
         force = Vec3(-1, 0, -1)
         polh.node().applyCentralImpulse(force)
 
+        return polh
 
-class Spheres(DropGimmicks):
 
-    def __init__(self, stairs, world, capacity):
-        super().__init__(stairs, world, capacity)
+class Spheres:
+
+    def __init__(self):
         self.scales = [0.3, 0.4, 0.5, 0.6]
         self.sphere_maker = SphereGeomMaker()
 
@@ -100,14 +86,12 @@ class Spheres(DropGimmicks):
         geomnode = self.sphere_maker.make_geomnode()
         scale = random.choice(self.scales)
         sphere = Sphere(geomnode, f'spheres_{index}', scale)
-        self.setPos(pos)
-        sphere.reparentTo(self)
-        self.holder[index] = sphere
 
-        self.world.attachRigidBody(sphere.node())
         force = Vec3(-1, 0, -1) * 2
         apply_pt = pos + Vec3(0, 0, 0.3)
         sphere.node().applyImpulse(force, apply_pt)
+
+        return sphere
 
 
 class State(Enum):
@@ -411,8 +395,23 @@ class Polyhedron(NodePath):
         self.node().addShape(shape)
         self.node().setMass(1)
         self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
         self.setScale(0.7)
+
+
+class Sphere(NodePath):
+
+    def __init__(self, geom_node, node_name, scale):
+        super().__init__(BulletRigidBodyNode(node_name))
+        np = self.attachNewNode(geom_node)
+        np.setTwoSided(True)
+        end, tip = np.getTightBounds()
+        size = tip - end
+        self.node().addShape(BulletSphereShape(size.z / 2))
+        self.node().setMass(scale * 10)
+        self.node().setRestitution(0.7)
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
+        self.setScale(scale)
 
 
 class Pyramid(NodePath):
@@ -446,21 +445,6 @@ class SlimPrism(NodePath):
         self.setScale(0.5, 0.5, 0.3)
         self.setHpr(90, 90, 0)
         self.node().setKinematic(True)
-
-
-class Sphere(NodePath):
-
-    def __init__(self, geom_node, node_name, scale):
-        super().__init__(BulletRigidBodyNode(node_name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
-        end, tip = np.getTightBounds()
-        size = tip - end
-        self.node().addShape(BulletSphereShape(size.z / 2))
-        self.node().setMass(scale * 10)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
-        self.setScale(scale)
 
 
 class Octahedron(NodePath):

@@ -89,7 +89,8 @@ class Floor(NodePath):
         super().__init__(BulletRigidBodyNode('floor'))
         model = self.create_floor(start, end)
         model.reparentTo(self)
-        self.setCollideMask(BitMask32.bit(1))
+        # # self.setCollideMask(BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(3))
         self.node().setRestitution(1)
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
 

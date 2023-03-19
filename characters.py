@@ -13,8 +13,7 @@ class Characters(NodePath):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, name))
         self.world = world
         self.reparentTo(base.render)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2))
-        # self.setCollideMask(BitMask32.allOn())
+        self.setCollideMask(BitMask32.allOn())
         self.world.attachCharacter(self.node())
 
         self.climbing = True
