@@ -8,6 +8,7 @@ from panda3d.core import Vec3, Point3, TextNode
 from panda3d.core import PandaNode, NodePath
 from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBaseGlobal import globalClock
+from direct.showbase.InputStateGlobal import inputState
 
 from scene import Scene
 from characters import SnowMan
@@ -32,6 +33,14 @@ class ClimbStairs(ShowBase):
         self.climber = SnowMan(Point3(-1, 0, 0), self.world)
         self.camera_before_x = self.climber.getX()
 
+        # self.floater = NodePath('floater')
+        # self.floater.setZ(5.0)
+        # self.floater.reparentTo(self.climber)
+        # self.camera.reparentTo(self.climber.navigator)
+        # self.camera.setPos(Point3(-50, 45, 36))
+        # self.camera.setHpr(Vec3(-132, -25, 0))
+        # self.camera.lookAt(self.floater)
+
         self.cones = Cones(self.scene.stairs, self.world)
         self.saws = CircularSaws(self.scene.stairs, self.world)
         self.piles = Piles(self.scene.stairs, self.world)
@@ -41,6 +50,14 @@ class ClimbStairs(ShowBase):
         self.drop_sphere = True
         self.play = False
         self.delete_delay_time = 3
+
+        inputState.watchWithModifiers('forward', 'arrow_up')
+        inputState.watchWithModifiers('backward', 'arrow_down')
+        inputState.watchWithModifiers('left', 'arrow_left')
+        inputState.watchWithModifiers('right', 'arrow_right')
+        inputState.watchWithModifiers('jump', 'enter')
+        inputState.watchWithModifiers('turn_right', 'q')
+        inputState.watchWithModifiers('turn_left', 'w')
 
         self.display = OnscreenText(
             text='',
@@ -61,6 +78,28 @@ class ClimbStairs(ShowBase):
             self.debug_np.show()
         else:
             self.debug_np.hide()
+
+    def control_climber(self):
+        speed = Vec3(0, 0, 0)
+        omega = 0.0
+
+        if inputState.isSet('jump'):
+            self.climber.do_jump()
+
+        if inputState.isSet('left'):
+            speed.setX(2.0)
+        if inputState.isSet('right'):
+            speed.setX(-2.0)
+        if inputState.isSet('forward'):
+            speed.setY(-2.0)
+        if inputState.isSet('backward'):
+            speed.setY(2.0)
+        if inputState.isSet('turn_right'):
+            omega += -120
+        if inputState.isSet('turn_left'):
+            omega += 120
+
+        self.climber.move(speed, omega)
 
     def game_start(self, task):
         self.start_screen.removeNode()
@@ -102,7 +141,16 @@ class ClimbStairs(ShowBase):
         dt = globalClock.getDt()
 
         if self.play:
-            self.climber.update(dt)
+            self.climber.calc_climbed_steps()
+
+            if self.climber.climbing:
+                self.control_climber()
+                self.climber.detect_collision()
+            else:
+                self.climber.fall(dt)
+
+            # self.control_climber()
+            # self.climber.update(dt)
             self.display.setText(str(self.climber.stair))
 
             # increase stair

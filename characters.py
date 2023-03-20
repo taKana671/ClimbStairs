@@ -2,7 +2,7 @@ from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import NodePath, TransformState
-from direct.showbase.InputStateGlobal import inputState
+# from direct.showbase.InputStateGlobal import inputState
 
 SNOWMAN_PATH = 'models/snowman/snowman'
 
@@ -21,35 +21,12 @@ class Characters(NodePath):
         self.stair_before = 0
         self.back_to = None
 
-        inputState.watchWithModifiers('forward', 'arrow_up')
-        inputState.watchWithModifiers('backward', 'arrow_down')
-        inputState.watchWithModifiers('left', 'arrow_left')
-        inputState.watchWithModifiers('right', 'arrow_right')
-        inputState.watchWithModifiers('jump', 'enter')
-        inputState.watchWithModifiers('turn_right', 'q')
-        inputState.watchWithModifiers('turn_left', 'w')
+    def do_jump(self):
+        self.node().setMaxJumpHeight(2.0)  # 5.0
+        self.node().setJumpSpeed(5.0)      # 8.0
+        self.node().doJump()
 
-    def control_character(self):
-        speed = Vec3(0, 0, 0)
-        omega = 0.0
-
-        if inputState.isSet('jump'):
-            self.node().setMaxJumpHeight(2.0)  # 5.0
-            self.node().setJumpSpeed(5.0)      # 8.0
-            self.node().doJump()
-        if inputState.isSet('left'):
-            speed.setX(2.0)
-        if inputState.isSet('right'):
-            speed.setX(-2.0)
-        if inputState.isSet('forward'):
-            speed.setY(-2.0)
-        if inputState.isSet('backward'):
-            speed.setY(2.0)
-        if inputState.isSet('turn_right'):
-            omega += -120
-        if inputState.isSet('turn_left'):
-            omega += 120
-
+    def move(self, speed, omega):
         self.node().setAngularMovement(omega)
         self.node().setLinearMovement(speed, True)
 
@@ -107,14 +84,14 @@ class Characters(NodePath):
             if self.stair == self.back_to + 1:
                 self.climbing = True
 
-    def update(self, dt):
-        self.calc_climbed_steps()
+    # def update(self, dt):
+    #     self.calc_climbed_steps()
 
-        if self.climbing:
-            self.control_character()
-            self.detect_collision()
-        else:
-            self.fall(dt)
+    #     if self.climbing:
+    #         self.control_character()
+    #         self.detect_collision()
+    #     else:
+    #         self.fall(dt)
 
 
 class SnowMan(Characters):
