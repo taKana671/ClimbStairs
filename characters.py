@@ -2,7 +2,6 @@ from panda3d.bullet import BulletCapsuleShape, ZUp
 from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import NodePath, TransformState
-# from direct.showbase.InputStateGlobal import inputState
 
 SNOWMAN_PATH = 'models/snowman/snowman'
 
@@ -18,17 +17,7 @@ class Characters(NodePath):
 
         self.climbing = True
         self.stair = 0
-        # self.stair_before = 0
         self.back_to = None
-
-    def do_jump(self):
-        self.node().setMaxJumpHeight(2.0)  # 5.0
-        self.node().setJumpSpeed(5.0)      # 8.0
-        self.node().doJump()
-
-    def move(self, speed, omega):
-        self.node().setAngularMovement(omega)
-        self.node().setLinearMovement(speed, True)
 
     def detect_collision(self):
         go_back = 0
@@ -55,25 +44,14 @@ class Characters(NodePath):
                 break
 
     def calc_climbed_steps(self):
-        """Get the height of the stair on which the character is. 
+        """Get the height of the stair on which the character is.
         """
-        # """Calculate the stair on which the character is.
-        #    Because the gap between the steps is 1 and the z of character's center
-        #    is about 0.95, int(z) means the stair on which the character is.
-        # """
         from_pos = self.getPos()
         to_pos = Point3(from_pos.x, from_pos.y, -1)
         result = self.world.rayTestClosest(from_pos, to_pos, BitMask32.bit(4))
 
         if result.hasHit():
             self.stair = int(result.getHitPos().z)
-            # print('result', result.getNode().getName(), result.getHitPos())
-
-        # if self.node().isOnGround():
-        #     if (z := int(self.getPos().z)) != self.stair:
-        #         self.stair_before = self.stair
-        #         print('climed up', self.getX(), z)
-        #         self.stair = z
 
     def is_jump(self, stair):
         """Return True if the character is jumping onto the next stair
@@ -95,14 +73,19 @@ class Characters(NodePath):
             if self.stair == self.back_to + 1:
                 self.climbing = True
 
-    # def update(self, dt):
-    #     self.calc_climbed_steps()
+    def do_jump(self):
+        self.node().setMaxJumpHeight(2.0)  # 5.0
+        self.node().setJumpSpeed(5.0)      # 8.0
+        self.node().doJump()
 
-    #     if self.climbing:
-    #         self.control_character()
-    #         self.detect_collision()
-    #     else:
-    #         self.fall(dt)
+    def update(self, dt, speed):
+        self.calc_climbed_steps()
+
+        if self.climbing:
+            self.node().setLinearMovement(speed, True)
+            self.detect_collision()
+        else:
+            self.fall(dt)
 
 
 class SnowMan(Characters):

@@ -71,20 +71,11 @@ class ClimbStairs(ShowBase):
         self.world.setDebugNode(self.debug_np.node())
 
         self.scene = Scene(self.world)
-        self.climber = SnowMan(Point3(-1, 0, 0), self.world)
-        self.camera_before_x = self.climber.getX()
-
-        # self.floater = NodePath('floater')
-        # self.floater.setZ(5.0)
-        # self.floater.reparentTo(self.climber)
-        # self.camera.reparentTo(self.climber.navigator)
-        # self.camera.setPos(Point3(-50, 45, 36))
-        # self.camera.setHpr(Vec3(-132, -25, 0))
-        # self.camera.lookAt(self.floater)
-
+        self.climber = SnowMan(Point3(-1.0, 0.0, 0.0), self.world)
         self.popout_gimmicks = PopOutGimmiks(self.scene.stairs, self.world)
         self.drop_gimmicks = DropGimmicks(self.scene.stairs, self.world)
 
+        self.diff = self.camera.getX() - self.climber.getX()
         self.timer = 0
         self.drop_sphere = True
         self.delete_delay_time = 3
@@ -94,8 +85,6 @@ class ClimbStairs(ShowBase):
         inputState.watchWithModifiers('left', 'arrow_left')
         inputState.watchWithModifiers('right', 'arrow_right')
         inputState.watchWithModifiers('jump', 'enter')
-        inputState.watchWithModifiers('turn_right', 'q')
-        inputState.watchWithModifiers('turn_left', 'w')
 
         self.display = ScoreDisplay()
         self.display.reparentTo(self.a2dTopLeft)
@@ -112,9 +101,8 @@ class ClimbStairs(ShowBase):
         else:
             self.debug_np.hide()
 
-    def control_climber(self):
+    def control_climber(self, dt):
         speed = Vec3(0, 0, 0)
-        omega = 0.0
 
         if inputState.isSet('jump'):
             self.climber.do_jump()
@@ -127,19 +115,14 @@ class ClimbStairs(ShowBase):
             speed.setY(-2.0)
         if inputState.isSet('backward'):
             speed.setY(2.0)
-        if inputState.isSet('turn_right'):
-            omega += -120
-        if inputState.isSet('turn_left'): 
-            omega += 120
 
-        self.climber.move(speed, omega)
+        self.climber.update(dt, speed)
 
     def move_camera(self):
         """Change camera x and z with the movement of a climber.
         """
-        if (distance := self.climber.getX() - self.camera_before_x) != 0:
-            self.camera_before_x = self.climber.getX()
-            pos = self.camera.getPos() + Vec3(distance, 0, distance)
+        if (dist := self.diff - (self.camera.getX() - self.climber.getX())) != 0:
+            pos = self.camera.getPos() + Vec3(dist, 0, dist)
             self.camera.setPos(pos)
 
     def clean_floor(self):
@@ -169,24 +152,14 @@ class ClimbStairs(ShowBase):
     def update(self, task):
         dt = globalClock.getDt()
 
-        self.climber.calc_climbed_steps()
-
-        if self.climber.climbing:
-            self.control_climber()
-            self.climber.detect_collision()
-        else:
-            self.climber.fall(dt)
-
-        # self.control_climber()
-        # self.climber.update(dt)
+        # move climber and display score
+        self.control_climber(dt)
+        self.move_camera()
         self.display.setText(str(self.climber.stair))
 
         # increase stair
         if self.scene.stairs.top_stair - self.climber.stair < 14:
             self.scene.stairs.increase()
-
-        # move camera with the climber.
-        self.move_camera()
 
         # control gimmicks
         if task.time > self.timer:
