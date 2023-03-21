@@ -18,15 +18,15 @@ LIGHT_GRAY = LColor(0.75, 0.75, 0.75, 1)
 
 class GimmickRoot(NodePath):
 
-    def __init__(self):
-        super().__init__(PandaNode('gimmikRoot'))
+    def __init__(self, name):
+        super().__init__(PandaNode(name))
         self.reparentTo(base.render)
 
 
 class DropGimmicks(GimmickRoot):
 
     def __init__(self, stairs, world):
-        super().__init__()
+        super().__init__('drop_gimmicks')
         self.world = world
         self.stairs = stairs
         self.sphere_maker = Spheres()
@@ -104,10 +104,27 @@ class State(Enum):
     WAIT = auto()
 
 
-class EmbeddedGimmiks(GimmickRoot):
+class PopOutGimmiks(GimmickRoot):
 
     def __init__(self, stairs, world):
-        super().__init__()
+        super().__init__('popout_gimmicks')
+        self.cones = Cones(stairs, world)
+        self.cones.reparentTo(self)
+        self.saws = CircularSaws(stairs, world)
+        self.saws.reparentTo(self)
+        self.piles = Piles(stairs, world)
+        self.piles.reparentTo(self)
+
+    def pop_out(self, dt, climber):
+        self.cones.run(dt, climber, self.saws.stair, self.piles.stair)
+        self.saws.run(dt, climber, self.cones.stair, self.piles.stair)
+        self.piles.run(dt, climber, self.cones.stair, self.saws.stair)
+
+
+class EmbeddedPieces(NodePath):
+
+    def __init__(self, name, stairs, world):
+        super().__init__(PandaNode(name))
         self.stairs = stairs
         self.world = world
         self.stair = None
@@ -124,14 +141,10 @@ class EmbeddedGimmiks(GimmickRoot):
            start and the 15th from the start.
         """
         self.stair = random.choice(
-            [n for n in range(start, start + 15) if n not in stairs]
-        )
+            [n for n in range(start, start + 15) if n not in stairs])
         self.state = State.READY
 
-        # print(self.__class__.__name__, self.stair, 'start:', start, 'end', start + 15)
-
     def run(self, dt, climber, *trick_stairs):
-
         match self.state:
             case State.READY:
                 if not climber.climbing:
@@ -151,21 +164,21 @@ class EmbeddedGimmiks(GimmickRoot):
                     self.decide_stair(climber.stair, *trick_stairs)
 
 
-class Cones(EmbeddedGimmiks):
+class Cones(EmbeddedPieces):
 
     def __init__(self, stairs, world):
-        super().__init__(stairs, world)
+        super().__init__('cones', stairs, world)
         self.cone_maker = PyramidGeomMaker()
-        n = self.stairs.left_end - self.stairs.right_end
-        self.cones = [None for _ in range(n)]
+        self.cones = [cone for cone in self.make_cones()]
         self.timer = 0
 
-    def make_cone(self, i, pos):
-        geomnode = self.cone_maker.make_geomnode()
-        cone = Pyramid(geomnode, f'cones_{i}')
-        self.world.attachRigidBody(cone.node())
+    def make_cones(self):
+        n = self.stairs.left_end - self.stairs.right_end
 
-        return cone
+        for i in range(n):
+            geomnode = self.cone_maker.make_geomnode()
+            cone = Pyramid(geomnode, f'cones_{i}')
+            yield cone
 
     def setup(self, chara_pos):
         stair_center = self.stairs.center(self.stair)
@@ -176,13 +189,9 @@ class Cones(EmbeddedGimmiks):
         for i, cone in enumerate(self.cones):
             y = self.stairs.left_end - (i + 0.5)
             pos = Point3(self.x_start, y, z)
-
-            if not cone:
-                cone = self.make_cone(i, pos)
-                self.cones[i] = cone
-
             cone.setPos(pos)
             cone.reparentTo(self)
+            self.world.attach(cone.node())
 
         self.state = State.APPEAR
 
@@ -212,22 +221,22 @@ class Cones(EmbeddedGimmiks):
     def finish(self):
         for cone in self.cones:
             cone.detachNode()
+            self.world.remove(cone.node())
 
 
-class CircularSaws(EmbeddedGimmiks):
+class CircularSaws(EmbeddedPieces):
 
     def __init__(self, stairs, world):
-        super().__init__(stairs, world)
+        super().__init__('saws', stairs, world)
         self.creater = PolyhedronGeomMaker()
         self.colors = (RED, BLUE, LIGHT_GRAY)
-        self.saws = dict(left=None, right=None)
+        self.saws = {key: val for key, val in self.make_saws()}
 
-    def make_saw(self, key):
-        geom_node = self.creater.make_geomnode('octagon_prism', self.colors)
-        saw = SlimPrism(geom_node, f'saws_{key}')
-        self.world.attachRigidBody(saw.node())
-
-        return saw
+    def make_saws(self):
+        for key in ('left', 'right'):
+            geom_node = self.creater.make_geomnode('octagon_prism', self.colors)
+            saw = SlimPrism(geom_node, f'saws_{key}')
+            yield (key, saw)
 
     def start_xy(self, stair_center, chara_pos, key):
         delta = -0.1 if key == 'left' else 0.1
@@ -251,13 +260,9 @@ class CircularSaws(EmbeddedGimmiks):
         for key, saw in self.saws.items():
             x, y = self.start_xy(stair_center, chara_pos, key)
             pos = Point3(x, y, self.z_start)
-
-            if not saw:
-                saw = self.make_saw(key)
-                self.saws[key] = saw
-
             saw.setPos(pos)
             saw.reparentTo(self)
+            self.world.attach(saw.node())
 
         self.state = State.APPEAR
 
@@ -300,23 +305,23 @@ class CircularSaws(EmbeddedGimmiks):
     def finish(self):
         for saw in self.saws.values():
             saw.detach_node()
+            self.world.remove(saw.node())
 
 
-class Piles(EmbeddedGimmiks):
+class Piles(EmbeddedPieces):
 
     def __init__(self, stairs, world):
-        super().__init__(stairs, world)
+        super().__init__('piles', stairs, world)
         self.polh_maker = PolyhedronGeomMaker()
-        self.piles = [None for _ in range(2)]
         self.colors = (BLUE, RED)
+        self.piles = [pile for pile in self.make_piles()]
         self.timer = 0
 
-    def make_cone(self, index):
-        geomnode = self.polh_maker.make_geomnode('octahedron', self.colors)
-        pile = Octahedron(geomnode, f'piles_{index}')
-        self.world.attachRigidBody(pile.node())
-
-        return pile
+    def make_piles(self):
+        for i in range(2):
+            geomnode = self.polh_maker.make_geomnode('octahedron', self.colors)
+            pile = Octahedron(geomnode, f'piles_{i}')
+            yield pile
 
     def setup(self, chara_pos):
         stair_center = self.stairs.center(self.stair)
@@ -334,13 +339,9 @@ class Piles(EmbeddedGimmiks):
 
         for i, pile in enumerate(self.piles):
             pos = positions[i]
-
-            if not pile:
-                pile = self.make_cone(i)
-                self.piles[i] = pile
-
             pile.setPos(pos)
             pile.reparentTo(self)
+            self.world.attach(pile.node())
 
         self.state = State.APPEAR
 
@@ -382,6 +383,7 @@ class Piles(EmbeddedGimmiks):
     def finish(self):
         for pile in self.piles:
             pile.detachNode()
+            self.world.remove(pile.node())
 
 
 class Polyhedron(NodePath):

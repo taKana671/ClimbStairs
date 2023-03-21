@@ -78,7 +78,7 @@ class Rectangle(NodePath):
         end, tip = np.getTightBounds()
         self.node().addShape(BulletBoxShape((tip - end) / 2))
         self.node().setRestitution(1)
-        self.setCollideMask(BitMask32.bit(1))
+        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(4))
         self.setScale(scale)
         self.setPos(pos)
 
@@ -90,7 +90,7 @@ class Floor(NodePath):
         model = self.create_floor(start, end)
         model.reparentTo(self)
         # # self.setCollideMask(BitMask32.bit(1))
-        self.setCollideMask(BitMask32.bit(3))
+        self.setCollideMask(BitMask32.bit(3) | BitMask32.bit(4))
         self.node().setRestitution(1)
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
 

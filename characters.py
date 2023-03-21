@@ -18,7 +18,7 @@ class Characters(NodePath):
 
         self.climbing = True
         self.stair = 0
-        self.stair_before = 0
+        # self.stair_before = 0
         self.back_to = None
 
     def do_jump(self):
@@ -55,14 +55,25 @@ class Characters(NodePath):
                 break
 
     def calc_climbed_steps(self):
-        """Calculate the stair on which the character is.
-           Because the gap between the steps is 1 and the z of character's center
-           is about 0.95, int(z) means the stair on which the character is.
+        """Get the height of the stair on which the character is. 
         """
-        if self.node().isOnGround():
-            if (z := int(self.getPos().z)) != self.stair:
-                self.stair_before = self.stair
-                self.stair = z
+        # """Calculate the stair on which the character is.
+        #    Because the gap between the steps is 1 and the z of character's center
+        #    is about 0.95, int(z) means the stair on which the character is.
+        # """
+        from_pos = self.getPos()
+        to_pos = Point3(from_pos.x, from_pos.y, -1)
+        result = self.world.rayTestClosest(from_pos, to_pos, BitMask32.bit(4))
+
+        if result.hasHit():
+            self.stair = int(result.getHitPos().z)
+            # print('result', result.getNode().getName(), result.getHitPos())
+
+        # if self.node().isOnGround():
+        #     if (z := int(self.getPos().z)) != self.stair:
+        #         self.stair_before = self.stair
+        #         print('climed up', self.getX(), z)
+        #         self.stair = z
 
     def is_jump(self, stair):
         """Return True if the character is jumping onto the next stair
