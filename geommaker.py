@@ -295,6 +295,14 @@ class SphereGeomMaker(GeomMaker):
         return node
 
 
+class PolhModel(NodePath):
+
+    def __init__(self, geomnode):
+        super().__init__(geomnode)
+        self.setTwoSided(True)
+
+
+
 class TestShape(NodePath):
 
     def __init__(self):
@@ -308,10 +316,18 @@ class TestShape(NodePath):
 
         creater = PolyhedronGeomMaker()
         node = creater.make_geomnode('icosidodecahedron')
-
         obj = self.attachNewNode(node)
         obj.setTwoSided(True)
-        obj.reparentTo(self)
+        # obj = PolhModel(node)
+        # obj.reparentTo(self)
+
+        # node = creater.make_geomnode('cube')
+        # cube = NodePath(node)
+        # cube.setTwoSided(True)
+        # model = cube.copyTo(self)
+        
+
+        # obj.reparentTo(self) <= いらない
         shape = BulletConvexHullShape()
         shape.addGeom(node.getGeom(0))
         self.node().addShape(shape)
