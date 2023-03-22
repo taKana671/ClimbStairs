@@ -3,7 +3,7 @@
 * Made with Python and Panda3D.
 * All of the stairs and obstacles are made by using Geom objects. 
 
-![687](https://user-images.githubusercontent.com/48859041/203213201-58300241-d140-4992-a02b-af26e36a0546.png)
+![demo](https://user-images.githubusercontent.com/48859041/226908089-e9a5e50d-055e-45ca-8751-7f17f15c6f1d.png)
 
 # Requirements
 * Panda3D 1.10.11
