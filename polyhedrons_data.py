@@ -41,7 +41,12 @@ POLYHEDRONS = {
             (10, 15, 19), (11, 16, 15), (12, 17, 16), (13, 18, 17), (14, 19, 18),
             (15, 16, 17, 18, 19), (20, 21, 22, 23, 24, 25, 26, 27, 28, 29)
         ],
-        'color_pattern': [0, 1, 2, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 1, 1, 1, 1, 0, 3]
+        'color_pattern': [0, 1, 2, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 1, 1, 1, 1, 0, 3],
+        'normals': [
+            None, None, None, None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None, None, None, None, None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
+        ]
     },
     'octagon_prism': {
         'vertices': [
@@ -67,7 +72,19 @@ POLYHEDRONS = {
             (2, 3, 11, 10), (3, 4, 12, 11), (4, 5, 13, 12), (5, 6, 14, 13),
             (6, 7, 15, 14), (8, 9, 10, 11, 12, 13, 14, 15)
         ],
-        'color_pattern': [1, 0, 2, 0, 1, 0, 1, 0, 1, 2]
+        'color_pattern': [1, 0, 2, 0, 1, 0, 1, 0, 1, 2],
+        'normals': [
+            None,
+            None,
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
+        ]
     },
     'truncated_tetrahedron': {
         'vertices': [
@@ -88,7 +105,8 @@ POLYHEDRONS = {
             (0, 1, 6), (0, 6, 9, 11, 8, 5), (0, 5, 4, 3, 2, 1), (1, 2, 7, 10, 9, 6),
             (2, 3, 7), (3, 4, 8, 11, 10, 7), (4, 5, 8), (9, 10, 11)
         ],
-        'color_pattern': [0, 1, 1, 1, 0, 1, 0, 0]
+        'color_pattern': [0, 1, 1, 1, 0, 1, 0, 0],
+        'normals': [None, None, None, None, None, None, None, None]
     },
     'pentagonal_rotunda': {
         'vertices': [
@@ -120,7 +138,12 @@ POLYHEDRONS = {
             (10, 15, 19), (11, 16, 15), (12, 17, 16), (13, 18, 17),
             (14, 19, 18), (15, 16, 17, 18, 19)
         ],
-        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0]
+        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0],
+        'normals': [
+            None, None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)],
+            None, None, None, None, None, None, None, None, None, None, None, None, None, None
+        ]
     },
     'augmented_truncated_tetrahedron': {
         'vertices': [
@@ -141,12 +164,13 @@ POLYHEDRONS = {
             (0.35007002, -0.68718427, -0.45732956)
         ],
         'faces': [
-            (0, 5, 4, 3, 2, 1), (0, 1, 6), (0, 6, 13, 12), 
+            (0, 5, 4, 3, 2, 1), (0, 1, 6), (0, 6, 13, 12),
             (0, 12, 5), (1, 2, 7, 10, 9, 6), (2, 3, 7),
             (3, 4, 8, 11, 10, 7), (4, 5, 8), (5, 12, 14, 8),
             (6, 9, 13), (8, 14, 11), (9, 10, 11), (9, 11, 14, 13), (12, 13, 14)
         ],
-        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 2, 1, 1, 1, 2, 1]
+        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 2, 1, 1, 1, 2, 1],
+        'normals': [None, None, None, None, None, None, None, None, None, None, None, None, None, None]
     },
     'tambourine': {
         'vertices': [
@@ -174,7 +198,13 @@ POLYHEDRONS = {
             (5, 6, 14), (5, 14, 13), (6, 7, 15), (6, 15, 14),
             (7, 8, 15), (8, 9, 10, 11, 12, 13, 14, 15)
         ],
-        'color_pattern': [1, 2, 1, 8, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 8]
+        'color_pattern': [1, 2, 1, 8, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 2, 8],
+        'normals': [
+            None, None, None,
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+            None, None, None, None, None, None, None, None, None, None, None, None, None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
+        ]
     },
     'parabiaugmented_hexagonal_prism': {
         'vertices': [
@@ -200,7 +230,12 @@ POLYHEDRONS = {
             (4, 5, 11, 10), (4, 10, 13), (6, 7, 8, 9, 10, 11),
             (6, 12, 7), (9, 13, 10)
         ],
-        'color_pattern': [0, 1, 2, 2, 0, 2, 0, 2, 2, 0, 2, 1, 2, 2]
+        'color_pattern': [0, 1, 2, 2, 0, 2, 0, 2, 2, 0, 2, 1, 2, 2],
+        'normals': [
+            None, [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+            None, None, None, None, None, None, None, None, None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)], None, None
+        ]
     },
     'augmented_tridiminished_icosahedron': {
         'vertices': [
@@ -219,7 +254,8 @@ POLYHEDRONS = {
             (0, 5, 6, 8, 4), (0, 4, 3, 2, 1), (0, 1, 9), (0, 9, 5),
             (1, 2, 7, 6, 5), (1, 5, 9), (2, 3, 7), (3, 4, 8), (3, 8, 7), (6, 7, 8)
         ],
-        'color_pattern': [0, 2, 1, 1, 3, 1, 1, 1, 1, 1]
+        'color_pattern': [0, 2, 1, 1, 3, 1, 1, 1, 1, 1],
+        'normals': [None, None, None, None, None, None, None, None, None, None]
     },
     'pentagonal_gyrocupolarotunda': {
         'vertices': [
@@ -266,6 +302,12 @@ POLYHEDRONS = {
             1, 0, 0, 2,
             2, 0, 0, 0,
             0, 0, 2
+        ],
+        'normals': [
+            None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None,
+            None, None, None
         ]
     },
     'elongated_triangular_gyrobicupola': {
@@ -298,7 +340,8 @@ POLYHEDRONS = {
             (8, 9, 16), (9, 10, 17, 16), (10, 11, 17),
             (12, 13, 14), (15, 16, 17)
         ],
-        'color_pattern': [2, 2, 1, 0, 2, 1, 2, 0, 2, 1, 2, 0, 1, 0, 0, 1, 0, 1, 1, 1]
+        'color_pattern': [2, 2, 1, 0, 2, 1, 2, 0, 2, 1, 2, 0, 1, 0, 0, 1, 0, 1, 1, 1],
+        'normals': [None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
     },
     'pentagonal_gyrobicupola': {
         'vertices': [
@@ -332,7 +375,13 @@ POLYHEDRONS = {
             (6, 17, 16, 7), (7, 8, 14, 13), (7, 16, 8),
             (8, 9, 14), (8, 16, 15, 9), (10, 11, 12, 13, 14), (15, 16, 17, 18, 19)
         ],
-        'color_pattern': [0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 2, 2]
+        'color_pattern': [0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 2, 2],
+        'normals': [
+            None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None, None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)],
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)]
+        ]
     },
     'pentagonal_cupola': {
         'vertices': [
@@ -366,7 +415,13 @@ POLYHEDRONS = {
             (8, 9, 14),
             (10, 11, 12, 13, 14)
         ],
-        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 0, 1, 0, 3]
+        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 0, 1, 0, 3],
+        'normals': [
+            None, None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)],
+            None, None, None, None, None, None, None, None,
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)]
+        ]
     },
     'triaugmented_hexagonal_prism': {
         'vertices': [
@@ -405,7 +460,14 @@ POLYHEDRONS = {
             (8, 13, 9),
             (10, 14, 11),
         ],
-        'color_pattern': [0, 1, 2, 2, 0, 2, 2, 2, 0, 2, 2, 2, 2, 1, 2, 2, 2]
+        'color_pattern': [0, 1, 2, 2, 0, 2, 2, 2, 0, 2, 2, 2, 2, 1, 2, 2, 2],
+        'normals': [
+            None,
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+            None, None, None, None, None, None, None, None, None, None, None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)],
+            None, None, None
+        ]
     },
     'truncated_cuboctahedron': {
         'vertices': [
@@ -486,7 +548,35 @@ POLYHEDRONS = {
             (37, 38, 40, 41),
             (40, 47, 46, 45, 44, 43, 42, 41),
         ],
-        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 0, 2, 2, 2, 2, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 2]
+        'color_pattern': [0, 1, 2, 1, 0, 1, 0, 1, 0, 2, 2, 2, 2, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 2],
+        'normals': [
+            None,
+            None,
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            [(0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0)],
+            [(-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)],
+            [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)],
+            [(1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0)],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
+        ]
     },
     'truncated_octahedron': {
         'vertices': [
@@ -531,7 +621,23 @@ POLYHEDRONS = {
             (16, 17, 23, 22),
             (18, 19, 20, 21, 22, 23)
         ],
-        'color_pattern': [2, 0, 1, 2, 1, 2, 1, 0, 0, 0, 2, 2, 2, 1]
+        'color_pattern': [2, 0, 1, 2, 1, 2, 1, 0, 0, 0, 2, 2, 2, 1],
+        'normals': [
+            None,
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
+        ]
     },
     'cuboctahedron': {
         'vertices': [
@@ -554,7 +660,8 @@ POLYHEDRONS = {
             (3, 4, 8, 7), (3, 10, 4), (4, 5, 8), (4, 10, 9, 5),
             (6, 7, 8), (9, 10, 11)
         ],
-        'color_pattern': [0, 2, 0, 1, 2, 0, 0, 2, 1, 0, 0, 2, 0, 0]
+        'color_pattern': [0, 2, 0, 1, 2, 0, 0, 2, 1, 0, 0, 2, 0, 0],
+        'normals': [None, None, None, None, None, None, None, None, None, None, None, None, None, None]
     },
     'icosidodecahedron': {
         'vertices': [
@@ -608,6 +715,11 @@ POLYHEDRONS = {
             1, 1, 1, 1,
             1, 0, 1, 1,
             1, 1, 1, 0
+        ],
+        'normals': [
+            None, None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None, None, None,
+            None, None, None, None, None, None, None, None, None, None
         ]
     },
     'tetrahedron': {
@@ -618,7 +730,8 @@ POLYHEDRONS = {
             (0.00000000, 0.94280904, 0.33333333)
         ],
         'faces': [(0, 1, 3), (0, 3, 2), (0, 2, 1), (1, 2, 3)],
-        'color_pattern': [0, 1, 2, 3]
+        'color_pattern': [0, 1, 2, 3],
+        'normals': [None, None, None, None]
     },
     'octahedron': {
         'vertices': [
@@ -633,7 +746,8 @@ POLYHEDRONS = {
             (0, 1, 4), (0, 4, 3), (0, 3, 5), (0, 5, 1),
             (1, 2, 4), (1, 5, 2), (2, 3, 4), (2, 5, 3)
         ],
-        'color_pattern': [1, 0, 1, 0, 0, 1, 1, 0]
+        'color_pattern': [1, 0, 1, 0, 0, 1, 1, 0],
+        'normals': [None, None, None, None, None, None, None, None]
     },
     'cube': {
         'vertices': [
@@ -644,7 +758,15 @@ POLYHEDRONS = {
             (0, 1, 5, 4), (0, 4, 7, 3), (0, 3, 2, 1),
             (1, 2, 6, 5), (2, 3, 7, 6), (4, 5, 6, 7)
         ],
-        'color_pattern': [1, 1, 0, 1, 1, 0]
+        'color_pattern': [1, 1, 0, 1, 1, 0],
+        'normals': [
+            [(-1, 0, 0), (-1, 0, 0), (-1, 0, 0), (-1, 0, 0)],
+            [(0, -1, 0), (0, -1, 0), (0, -1, 0), (0, -1, 0)],
+            [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)],
+            [(0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0)],
+            [(1, 0, 0), (1, 0, 0), (1, 0, 0), (1, 0, 0)],
+            [(0, 0, -1), (0, 0, -1), (0, 0, -1), (0, 0, -1)]
+        ]
     },
     'icosahedron': {
         'vertices': [
@@ -668,6 +790,7 @@ POLYHEDRONS = {
             (3, 9, 8), (3, 10, 4), (4, 5, 9), (5, 6, 11),
             (5, 11, 9), (6, 7, 11), (7, 8, 11), (8, 9, 11)
         ],
-        'color_pattern': [0, 1, 2, 3, 4, 2, 1, 3, 0, 1, 4, 1, 3, 2, 3, 0, 4, 3, 4, 1]
+        'color_pattern': [0, 1, 2, 3, 4, 2, 1, 3, 0, 1, 4, 1, 3, 2, 3, 0, 4, 3, 4, 1],
+        'normals': [None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
     }
 }

@@ -17,8 +17,7 @@ class Stairs(NodePath):
     def __init__(self, world):
         super().__init__(PandaNode('stairs'))
         creater = PolyhedronGeomMaker()
-        self.geom_node = creater.make_geomnode(
-            'cube', (AMETHYST, BLACK))
+        self.geom_node = creater.make_geomnode('cube', (AMETHYST, BLACK))
         self.world = world
         self.top_stair = -1
         self.setup_stairs()
@@ -89,7 +88,6 @@ class Floor(NodePath):
         super().__init__(BulletRigidBodyNode('floor'))
         model = self.create_floor(start, end)
         model.reparentTo(self)
-        # # self.setCollideMask(BitMask32.bit(1))
         self.setCollideMask(BitMask32.bit(3) | BitMask32.bit(4))
         self.node().setRestitution(1)
         self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
@@ -125,7 +123,7 @@ class Scene(NodePath):
 
     def __init__(self, world):
         super().__init__(PandaNode('scene'))
-        self.reparentTo(base.render)
+        # self.reparentTo(base.render)
         base.setBackgroundColor(MEDIUM_PURPLE)
         self.make_scene(world)
 

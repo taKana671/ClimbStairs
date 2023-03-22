@@ -3,6 +3,7 @@ from panda3d.bullet import BulletCharacterControllerNode
 from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import NodePath, TransformState
 
+
 SNOWMAN_PATH = 'models/snowman/snowman'
 
 
@@ -11,8 +12,8 @@ class Characters(NodePath):
     def __init__(self, world, shape, name):
         super().__init__(BulletCharacterControllerNode(shape, 0.4, name))
         self.world = world
-        self.reparentTo(base.render)
         self.setCollideMask(BitMask32.allOn())
+        # self.reparentTo(base.render)
         self.world.attachCharacter(self.node())
 
         self.climbing = True

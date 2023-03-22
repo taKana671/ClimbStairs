@@ -9,9 +9,10 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
-from scene import Scene
 from characters import SnowMan
 from gimmicks import DropGimmicks, PopOutGimmiks
+from lights import BasicAmbientLight, BasicDayLight
+from scene import Scene
 
 
 class ScoreDisplay(OnscreenText):
@@ -19,7 +20,7 @@ class ScoreDisplay(OnscreenText):
     def __init__(self):
         super().__init__(
             text='',
-            # parent=base.a2dTopLeft,
+            parent=base.a2dTopLeft,
             align=TextNode.ALeft,
             pos=(0.05, -0.1),
             scale=0.1,
@@ -31,6 +32,7 @@ class Instructions(NodePath):
 
     def __init__(self):
         super().__init__(PandaNode('instructions'))
+        self.reparentTo(base.a2dTopLeft)
 
         self.make_instructions([
             '[ESC]: Quit',
@@ -66,12 +68,18 @@ class ClimbStairs(ShowBase):
 
         self.world = BulletWorld()
         self.world.setGravity(Vec3(0, 0, -9.81))
-
         self.debug_np = self.render.attachNewNode(BulletDebugNode('debug'))
         self.world.setDebugNode(self.debug_np.node())
 
         self.scene = Scene(self.world)
+        self.scene.reparentTo(self.render)
+
+        self.ambient_light = BasicAmbientLight()
+        self.directional_light = BasicDayLight(parent=self.camera)
+
         self.climber = SnowMan(Point3(-1.0, 0.0, 0.0), self.world)
+        self.climber.reparentTo(self.render)
+
         self.popout_gimmicks = PopOutGimmiks(self.scene.stairs, self.world)
         self.drop_gimmicks = DropGimmicks(self.scene.stairs, self.world)
 
@@ -80,16 +88,14 @@ class ClimbStairs(ShowBase):
         self.drop_sphere = True
         self.delete_delay_time = 3
 
+        self.display = ScoreDisplay()
+        self.instructions = Instructions()
+
         inputState.watchWithModifiers('forward', 'arrow_up')
         inputState.watchWithModifiers('backward', 'arrow_down')
         inputState.watchWithModifiers('left', 'arrow_left')
         inputState.watchWithModifiers('right', 'arrow_right')
         inputState.watchWithModifiers('jump', 'enter')
-
-        self.display = ScoreDisplay()
-        self.display.reparentTo(self.a2dTopLeft)
-        self.instructions = Instructions()
-        self.instructions.reparentTo(self.a2dTopLeft)
 
         self.accept('d', self.toggle_debug)
         self.accept('escape', sys.exit)

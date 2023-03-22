@@ -8,7 +8,7 @@ from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 from panda3d.core import Geom, GeomTriangles
 from panda3d.core import GeomNode
 
-from panda3d.core import BitMask32
+from panda3d.core import BitMask32, Vec3
 from panda3d.core import NodePath
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.ShowBaseGlobal import globalClock
@@ -74,6 +74,7 @@ class PolyhedronGeomMaker(GeomMaker):
         arr_format = GeomVertexArrayFormat()
         arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
         arr_format.addColumn('color', 4, Geom.NTFloat32, Geom.CColor)
+        arr_format.addColumn('normal', 3, Geom.NTFloat32, Geom.CNormal)
         self.format_ = GeomVertexFormat.registerFormat(arr_format)
 
     def next_geomnode(self):
@@ -94,9 +95,14 @@ class PolyhedronGeomMaker(GeomMaker):
         vertices = self.data['vertices']
         faces = self.data['faces']
         color_pattern = self.data['color_pattern']
+        normals = self.data['normals']
 
-        for idxes, n in zip(faces, color_pattern):
-            yield ([vertices[i] for i in idxes], self.colors[n])
+        for idxes, n, normal in zip(faces, color_pattern, normals):
+            vert = (vertices[i] for i in idxes)
+            if normal is None:
+                normal = (Vec3(vertices[i]).normalized() for i in idxes)
+
+            yield (vert, self.colors[n], normal, len(idxes))
 
     def select_colors(self):
         n = max(self.data['color_pattern'])
@@ -110,14 +116,15 @@ class PolyhedronGeomMaker(GeomMaker):
         prim_indices = array.array("H", [])
         start = 0
 
-        for face, rgba in self.faces():
-            for pt in face:
+        for verts, rgba, norms, num_verts in self.faces():
+            for pt, norm in zip(verts, norms):
                 vdata_values.extend(pt)
                 vdata_values.extend(rgba)
+                vdata_values.extend(norm)
 
-            for indices in self.prim_indices(start, len(face)):
+            for indices in self.prim_indices(start, num_verts):
                 prim_indices.extend(indices)
-            start += len(face)
+            start += num_verts
 
         vdata = GeomVertexData('polyhedron', self.format_, Geom.UHStatic)
         vdata.uncleanSetNumRows(self.num_rows())
@@ -149,20 +156,21 @@ class PyramidGeomMaker(GeomMaker):
     def make_format(self):
         arr_format = GeomVertexArrayFormat()
         arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+        arr_format.addColumn('normal', 3, Geom.NTFloat32, Geom.CNormal)
         self.format_ = GeomVertexFormat.registerFormat(arr_format)
 
     def num_rows(self):
         return self.cycle + 3 * self.cycle
 
     def faces(self):
-        point = (0, 0, self.cone_length)
+        point = Vec3(0, 0, self.cone_length)
 
         bottom = []
         for i in range(self.cycle):
             theta = i * (2 * math.pi / self.cycle)
             x = self.cone_radius * math.sin(theta)
             y = self.cone_radius * math.cos(theta)
-            bottom.append((x, y, 0.0))
+            bottom.append(Vec3(x, y, 0.0))
 
         yield bottom
 
@@ -180,6 +188,8 @@ class PyramidGeomMaker(GeomMaker):
         for face in self.faces():
             for pt in face:
                 vdata_values.extend(pt)
+                normal = Vec3(0, 0, -1) if len(face) == self.cycle else pt.normalized()
+                vdata_values.extend(normal)
 
             for indices in self.prim_indices(start, len(face)):
                 prim_indices.extend(indices)
@@ -215,6 +225,7 @@ class SphereGeomMaker(GeomMaker):
         arr_format = GeomVertexArrayFormat()
         arr_format.addColumn('vertex', 3, Geom.NTFloat32, Geom.CPoint)
         arr_format.addColumn('color', 4, Geom.NTFloat32, Geom.CColor)
+        arr_format.addColumn('normal', 3, Geom.NTFloat32, Geom.CNormal)
         self.format_ = GeomVertexFormat.registerFormat(arr_format)
 
     def make_geomnode(self, colors=None):
@@ -269,8 +280,10 @@ class SphereGeomMaker(GeomMaker):
 
         for face, rgba in self.faces():
             for pt in face:
-                vdata_values.extend(pt.normalized())
+                n = pt.normalized()
+                vdata_values.extend(n)
                 vdata_values.extend(rgba)
+                vdata_values.extend(n)
 
             indices = self.triangle(start)
             prim_indices.extend(indices)
@@ -300,7 +313,6 @@ class PolhModel(NodePath):
     def __init__(self, geomnode):
         super().__init__(geomnode)
         self.setTwoSided(True)
-
 
 
 class TestShape(NodePath):
