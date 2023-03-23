@@ -1,7 +1,7 @@
 # ClimbStairs
 * Go up stairs while Avoiding obstacles. 
-* Made with Python and Panda3D.
-* All of the stairs and obstacles are made by using Geom objects. 
+* Implemented with Python and Panda3D.
+* Procedurally made all of the stairs and obstacles. 
 
 ![demo2](https://user-images.githubusercontent.com/48859041/227254351-d3a7d2f0-26e8-4012-86ae-6df665eac8cc.png)
 
