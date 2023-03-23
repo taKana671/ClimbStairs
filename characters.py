@@ -35,16 +35,18 @@ class Characters(NodePath):
 
         for con in result.get_contacts():
             nd_name = con.get_node1().get_name()
-            if (prefix := nd_name.split('_')[0]) == 'spheres':
+            if (prefix := nd_name.split('_')[0]) == 'sphere':
                 go_back += 3
             elif prefix == 'cones':
                 go_back += 1
             elif prefix == 'saws':
                 go_back += 4
-            elif prefix == 'polhs':
+            elif prefix == 'polh':
                 go_back += 5
             elif prefix == 'piles':
                 go_back += 2
+            elif prefix == 'torus':
+                go_back += 6
 
             if go_back > 0:
                 self.back_to = self.current_stair - 1 - go_back

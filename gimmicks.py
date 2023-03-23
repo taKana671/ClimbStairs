@@ -7,8 +7,8 @@ from panda3d.core import Vec3, Point3, LColor, BitMask32, Quat
 from panda3d.core import NodePath, PandaNode
 from direct.showbase.ShowBaseGlobal import globalClock
 
-
-from geommaker import PolyhedronGeomMaker, PyramidGeomMaker, SphereGeomMaker
+from geommaker import PolyhedronGeomMaker, SphereGeomMaker
+from geommaker import PyramidGeomMaker, TorusGeomMaker
 
 
 RED = LColor(1, 0, 0, 1)
@@ -29,28 +29,38 @@ class DropGimmicks(GimmickRoot):
         super().__init__('drop_gimmicks')
         self.world = world
         self.stairs = stairs
-        self.sphere_maker = Spheres()
-        self.polh_maker = Polyhedrons()
         self.index = 0
+        self.sphere_scales = [0.3, 0.4, 0.5, 0.6]
 
-    def drop(self, climber, drop_sphere):
-        """Drops sphere or polyhedron.
+        self.sphere_maker = SphereGeomMaker()
+        self.polh_maker = PolyhedronGeomMaker()
+        self.torus_maker = TorusGeomMaker()
+
+    def drop(self, climber, next_drop):
+        """Drops sphere, polyhedron, or torus.
            Args:
                 climer: Characters class instance
-                drop_sphere: bool
+                drop_sphere: int
         """
         drop_stair = climber.current_stair + 11
         stair_center = self.stairs.center(drop_stair)
         pos = Point3(stair_center.x, climber.get_y(), stair_center.z + 3)
 
-        if drop_sphere:
-            gimmick = self.sphere_maker.drop_start(self.index, pos)
-        else:
-            gimmick = self.polh_maker.drop_start(self.index)
+        match next_drop:
+            case 0:
+                geomnode = self.sphere_maker.make_geomnode()
+                scale = random.choice(self.sphere_scales)
+                obj = Sphere(geomnode, self.index, scale, pos)
+            case 1:
+                geomnode = self.polh_maker.next_geomnode()
+                obj = Polyhedron(geomnode, self.index)
+            case 2:
+                geomnode = self.torus_maker.make_geomnode()
+                obj = Torus(geomnode, self.index)
 
-        gimmick.set_pos(pos)
-        gimmick.reparent_to(self)
-        self.world.attach(gimmick.node())
+        obj.set_pos(pos)
+        obj.reparent_to(self)
+        self.world.attach(obj.node())
         self.index += 1
 
     def delete(self, node, task):
@@ -61,37 +71,59 @@ class DropGimmicks(GimmickRoot):
         return task.done
 
 
-class Polyhedrons:
+class Polyhedron(NodePath):
 
-    def __init__(self):
-        self.polh_maker = PolyhedronGeomMaker()
-
-    def drop_start(self, index):
-        geomnode = self.polh_maker.next_geomnode()
-        polh = Polyhedron(geomnode, f'polhs_{index}')
+    def __init__(self, geomnode, index):
+        super().__init__(BulletRigidBodyNode(f'polh_{index}'))
+        np = self.attach_new_node(geomnode)
+        np.set_two_sided(True)
+        shape = BulletConvexHullShape()
+        shape.add_geom(geomnode.get_geom(0))
+        self.node().add_shape(shape)
+        self.node().set_mass(1)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
+        self.set_scale(0.7)
 
         force = Vec3(-1, 0, -1)
-        polh.node().apply_central_impulse(force)
-
-        return polh
+        self.node().apply_central_impulse(force)
 
 
-class Spheres:
+class Sphere(NodePath):
 
-    def __init__(self):
-        self.scales = [0.3, 0.4, 0.5, 0.6]
-        self.sphere_maker = SphereGeomMaker()
-
-    def drop_start(self, index, pos):
-        geomnode = self.sphere_maker.make_geomnode()
-        scale = random.choice(self.scales)
-        sphere = Sphere(geomnode, f'spheres_{index}', scale)
+    def __init__(self, geomnode, index, scale, pos):
+        super().__init__(BulletRigidBodyNode(f'sphere_{index}'))
+        np = self.attach_new_node(geomnode)
+        np.set_two_sided(True)
+        end, tip = np.get_tight_bounds()
+        size = tip - end
+        self.node().add_shape(BulletSphereShape(size.z / 2))
+        self.node().set_mass(scale * 10)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
+        self.set_scale(scale)
 
         force = Vec3(-1, 0, -1) * 2
         apply_pt = pos + Vec3(0, 0, 0.3)
-        sphere.node().apply_impulse(force, apply_pt)
+        self.node().apply_impulse(force, apply_pt)
 
-        return sphere
+
+class Torus(NodePath):
+
+    def __init__(self, geomnode, index):
+        super().__init__(BulletRigidBodyNode(f'torus_{index}'))
+        np = self.attach_new_node(geomnode)
+        np.set_two_sided(True)
+        shape = BulletConvexHullShape()
+        shape.add_geom(geomnode.get_geom(0))
+        self.node().add_shape(shape)
+        self.node().set_mass(1)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
+        self.set_scale(0.3)
+
+        self.node().apply_torque_impulse(Vec3.up() * 10)
+        self.node().apply_central_impulse(Vec3.left() * 5)
 
 
 class State(Enum):
@@ -384,36 +416,6 @@ class Piles(EmbeddedPieces):
         for pile in self.piles:
             pile.detach_node()
             self.world.remove(pile.node())
-
-
-class Polyhedron(NodePath):
-
-    def __init__(self, geom_node, name):
-        super().__init__(BulletRigidBodyNode(name))
-        np = self.attach_new_node(geom_node)
-        np.set_two_sided(True)
-        shape = BulletConvexHullShape()
-        shape.add_geom(geom_node.get_geom(0))
-        self.node().add_shape(shape)
-        self.node().set_mass(1)
-        self.node().set_restitution(0.7)
-        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
-        self.set_scale(0.7)
-
-
-class Sphere(NodePath):
-
-    def __init__(self, geom_node, node_name, scale):
-        super().__init__(BulletRigidBodyNode(node_name))
-        np = self.attach_new_node(geom_node)
-        np.set_two_sided(True)
-        end, tip = np.get_tight_bounds()
-        size = tip - end
-        self.node().add_shape(BulletSphereShape(size.z / 2))
-        self.node().set_mass(scale * 10)
-        self.node().set_restitution(0.7)
-        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
-        self.set_scale(scale)
 
 
 class Pyramid(NodePath):

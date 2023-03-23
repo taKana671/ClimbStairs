@@ -84,7 +84,7 @@ class ClimbStairs(ShowBase):
 
         self.diff = self.camera.get_x() - self.climber.get_x()
         self.timer = 0
-        self.drop_sphere = True
+        self.next_drop = 0
         self.delete_delay_time = 3
 
         self.display = ScoreDisplay()
@@ -164,8 +164,8 @@ class ClimbStairs(ShowBase):
 
         # control gimmicks
         if task.time > self.timer:
-            self.drop_gimmicks.drop(self.climber, self.drop_sphere)
-            self.drop_sphere = not self.drop_sphere
+            self.drop_gimmicks.drop(self.climber, self.next_drop)
+            self.next_drop = n if (n := self.next_drop + 1) < 3 else 0
             interval = self.decide_interval()
             self.timer = task.time + interval
 

@@ -7,6 +7,15 @@ from panda3d.core import Vec3, LColor
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 from panda3d.core import Geom, GeomNode, GeomTriangles
 
+#**************************************
+from panda3d.core import NodePath, BitMask32
+from direct.showbase.ShowBase import ShowBase
+from direct.showbase.ShowBaseGlobal import globalClock
+from panda3d.bullet import BulletConvexHullShape
+from panda3d.bullet import BulletRigidBodyNode
+from panda3d.bullet import BulletWorld, BulletDebugNode
+#*************************************
+
 from polyhedrons_data import POLYHEDRONS
 
 
@@ -297,3 +306,158 @@ class SphereGeomMaker(GeomMaker):
         node.add_geom(geom)
 
         return node
+
+
+class TorusGeomMaker(GeomMaker):
+
+    def __init__(self, segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5):
+        self.segs_r = segs_r
+        self.segs_s = segs_s
+        self.ring_radius = ring_radius
+        self.section_radius = section_radius
+        self.make_format()
+
+    def make_format(self):
+        arr_format = GeomVertexArrayFormat()
+        arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
+        arr_format.add_column('color', 4, Geom.NTFloat32, Geom.CColor)
+        arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CColor)
+        arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
+        self.format_ = GeomVertexFormat.register_format(arr_format)
+
+    def make_geomnode(self):
+        self.colors = Colors.select(2)
+        geomnode = self._make_geomnode()
+        return geomnode
+
+    def _make_geomnode(self):
+        vdata_values = array.array('f', [])
+        prim_indices = array.array('H', [])
+
+        delta_angle_h = 2.0 * math.pi / self.segs_r
+        delta_angle_v = 2.0 * math.pi / self.segs_s
+
+        for i in range(self.segs_r + 1):
+            angle_h = delta_angle_h * i
+            u = i / self.segs_r
+
+            color = self.colors[0] if i // 2 % 2 == 0 else self.colors[1]
+
+            for j in range(self.segs_s + 1):
+                angle_v = delta_angle_v * j
+                r = self.ring_radius - self.section_radius * math.cos(angle_v)
+                c = math.cos(angle_h)
+                s = math.sin(angle_h)
+
+                x = r * c
+                y = r * s
+                z = self.section_radius * math.sin(angle_v)
+                nx = x - self.ring_radius * c
+                ny = y - self.ring_radius * s
+                normal_vec = Vec3(nx, ny, z).normalized()
+                v = 1.0 - j / self.segs_s
+
+                vdata_values.extend((x, y, z))
+                vdata_values.extend(color)
+                vdata_values.extend(normal_vec)
+                vdata_values.extend((u, v))
+
+        for i in range(self.segs_r):
+            for j in range(0, self.segs_s):
+                idx = j + i * (self.segs_s + 1)
+                prim_indices.extend([idx, idx + 1, idx + self.segs_s + 1])
+                prim_indices.extend([idx + self.segs_s + 1, idx + 1, idx + 1 + self.segs_s + 1])
+
+        vdata = GeomVertexData('torous', self.format_, Geom.UHStatic)
+        rows = (self.segs_r + 1) * (self.segs_s + 1)
+        vdata.unclean_set_num_rows(rows)
+        vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
+        vdata_mem[:] = vdata_values
+
+        prim = GeomTriangles(Geom.UHStatic)
+        prim_array = prim.modify_vertices()
+        prim_array.unclean_set_num_rows(len(prim_indices))
+        prim_mem = memoryview(prim_array).cast('B').cast('H')
+        prim_mem[:] = prim_indices
+
+        node = GeomNode('geomnode')
+        geom = Geom(vdata)
+        geom.add_primitive(prim)
+        node.add_geom(geom)
+
+        return node
+
+
+
+
+class PolhModel(NodePath):
+
+    def __init__(self, geomnode):
+        super().__init__(geomnode)
+        self.setTwoSided(True)
+
+
+class TestShape(NodePath):
+
+    def __init__(self):
+        super().__init__(BulletRigidBodyNode('testShape'))
+        self.reparentTo(base.render)
+        # maker = SphereGeomMaker()
+        # node = maker.make_geomnode()
+
+        # maker = PyramidGeomMaker()
+        # node = maker.make_geomnode()
+
+        # creater = PolyhedronGeomMaker()
+        # node = creater.make_geomnode('icosidodecahedron')
+        # obj = self.attachNewNode(node)
+        # obj.setTwoSided(True)
+
+        # node = creater.make_geomnode('cube')
+        # cube = NodePath(node)
+        # cube.setTwoSided(True)
+        # model = cube.copyTo(self)
+
+        maker = TorusGeomMaker()
+        node = maker.make_geomnode()
+        obj = self.attachNewNode(node)
+        obj.setTwoSided(True)
+
+        # obj.reparentTo(self) <= いらない
+        shape = BulletConvexHullShape()
+        shape.addGeom(node.getGeom(0))
+        self.node().addShape(shape)
+        self.setCollideMask(BitMask32(1))
+        self.setScale(0.3)
+        self.setColor(Colors.RED.value)
+
+
+class Test(ShowBase):
+
+    def __init__(self):
+        super().__init__()
+        self.disableMouse()
+        self.camera.setPos(10, 10, 10)  # 20, -20, 5
+        self.camera.lookAt(0, 0, 0)
+        self.world = BulletWorld()
+
+        # *******************************************
+        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
+        self.world.setDebugNode(collide_debug.node())
+        collide_debug.show()
+        # *******************************************
+
+        shape = TestShape()
+        self.world.attachRigidBody(shape.node())
+        # shape.hprInterval(8, (360, 720, 360)).loop()
+        self.taskMgr.add(self.update, 'update')
+
+    def update(self, task):
+        dt = globalClock.getDt()
+        self.world.doPhysics(dt)
+        return task.cont
+
+
+if __name__ == '__main__':
+    test = Test()
+    test.run()
