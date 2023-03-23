@@ -20,7 +20,7 @@ class GimmickRoot(NodePath):
 
     def __init__(self, name):
         super().__init__(PandaNode(name))
-        self.reparentTo(base.render)
+        self.reparent_to(base.render)
 
 
 class DropGimmicks(GimmickRoot):
@@ -41,22 +41,22 @@ class DropGimmicks(GimmickRoot):
         """
         drop_stair = climber.current_stair + 11
         stair_center = self.stairs.center(drop_stair)
-        pos = Point3(stair_center.x, climber.getY(), stair_center.z + 3)
+        pos = Point3(stair_center.x, climber.get_y(), stair_center.z + 3)
 
         if drop_sphere:
             gimmick = self.sphere_maker.drop_start(self.index, pos)
         else:
             gimmick = self.polh_maker.drop_start(self.index)
 
-        gimmick.setPos(pos)
-        gimmick.reparentTo(self)
-        self.world.attachRigidBody(gimmick.node())
+        gimmick.set_pos(pos)
+        gimmick.reparent_to(self)
+        self.world.attach(gimmick.node())
         self.index += 1
 
     def delete(self, node, task):
         np = NodePath(node)
         self.world.remove(node)
-        np.removeNode()
+        np.remove_node()
 
         return task.done
 
@@ -71,7 +71,7 @@ class Polyhedrons:
         polh = Polyhedron(geomnode, f'polhs_{index}')
 
         force = Vec3(-1, 0, -1)
-        polh.node().applyCentralImpulse(force)
+        polh.node().apply_central_impulse(force)
 
         return polh
 
@@ -89,7 +89,7 @@ class Spheres:
 
         force = Vec3(-1, 0, -1) * 2
         apply_pt = pos + Vec3(0, 0, 0.3)
-        sphere.node().applyImpulse(force, apply_pt)
+        sphere.node().apply_impulse(force, apply_pt)
 
         return sphere
 
@@ -109,11 +109,11 @@ class PopOutGimmiks(GimmickRoot):
     def __init__(self, stairs, world):
         super().__init__('popout_gimmicks')
         self.cones = Cones(stairs, world)
-        self.cones.reparentTo(self)
+        self.cones.reparent_to(self)
         self.saws = CircularSaws(stairs, world)
-        self.saws.reparentTo(self)
+        self.saws.reparent_to(self)
         self.piles = Piles(stairs, world)
-        self.piles.reparentTo(self)
+        self.piles.reparent_to(self)
 
     def pop_out(self, dt, climber):
         self.cones.run(dt, climber, self.saws.stair, self.piles.stair)
@@ -150,7 +150,7 @@ class EmbeddedPieces(NodePath):
                 if not climber.climbing:
                     self.state = State.WAIT
                 elif climber.is_jump(self.stair):
-                    self.setup(climber.getPos())
+                    self.setup(climber.get_pos())
             case State.APPEAR:
                 self.appear(dt)
             case State.STAY:
@@ -189,8 +189,8 @@ class Cones(EmbeddedPieces):
         for i, cone in enumerate(self.cones):
             y = self.stairs.left_end - (i + 0.5)
             pos = Point3(self.x_start, y, z)
-            cone.setPos(pos)
-            cone.reparentTo(self)
+            cone.set_pos(pos)
+            cone.reparent_to(self)
             self.world.attach(cone.node())
 
         self.state = State.APPEAR
@@ -198,21 +198,21 @@ class Cones(EmbeddedPieces):
     def appear(self, dt):
         distance = dt
         for cone in self.cones:
-            cone.setX(cone.getX() - distance)
+            cone.set_x(cone.get_x() - distance)
 
-        if self.cones[-1].getX() < self.x_stop:
-            self.timer = globalClock.getFrameCount() + 30
+        if self.cones[-1].get_x() < self.x_stop:
+            self.timer = globalClock.get_frame_count() + 30
             self.state = State.STAY
 
     def stay(self):
-        if globalClock.getFrameCount() > self.timer:
+        if globalClock.get_frame_count() > self.timer:
             self.timer = 0
             self.state = State.DISAPPEAR
 
     def disappear(self, dt):
         distance = dt
         for cone in self.cones:
-            cone.setX(cone.getX() + distance)
+            cone.set_x(cone.get_x() + distance)
 
         if self.cones[-1].getX() > self.x_start:
             self.finish()
@@ -220,7 +220,7 @@ class Cones(EmbeddedPieces):
 
     def finish(self):
         for cone in self.cones:
-            cone.detachNode()
+            cone.detach_node()
             self.world.remove(cone.node())
 
 
@@ -260,8 +260,8 @@ class CircularSaws(EmbeddedPieces):
         for key, saw in self.saws.items():
             x, y = self.start_xy(stair_center, chara_pos, key)
             pos = Point3(x, y, self.z_start)
-            saw.setPos(pos)
-            saw.reparentTo(self)
+            saw.set_pos(pos)
+            saw.reparent_to(self)
             self.world.attach(saw.node())
 
         self.state = State.APPEAR
@@ -269,9 +269,9 @@ class CircularSaws(EmbeddedPieces):
     def appear(self, dt):
         distance = dt * 3
         for saw in self.saws.values():
-            saw.setZ(saw.getZ() + distance)
+            saw.set_z(saw.get_z() + distance)
 
-        if self.saws['right'].getZ() > self.z_stop:
+        if self.saws['right'].get_z() > self.z_stop:
             self.state = State.MOVE
 
     def move(self, dt):
@@ -280,25 +280,25 @@ class CircularSaws(EmbeddedPieces):
 
         for key, saw in self.saws.items():
             if key == 'left':
-                y = saw.getY() - distance
+                y = saw.get_y() - distance
             else:
-                y = saw.getY() + distance
-            saw.setY(y)
+                y = saw.get_y() + distance
+            saw.set_y(y)
 
             q = Quat()
             axis = Vec3.down()
-            q.setFromAxisAngle(angle, axis.normalized())
-            saw.setQuat(saw, q)
+            q.set_from_axis_angle(angle, axis.normalized())
+            saw.set_quat(saw, q)
 
-        if self.saws['left'].getY() < self.stairs.right_end + 0.7:
+        if self.saws['left'].get_y() < self.stairs.right_end + 0.7:
             self.state = State.DISAPPEAR
 
     def disappear(self, dt):
         distance = dt * 2
         for saw in self.saws.values():
-            saw.setZ(saw.getZ() - distance)
+            saw.set_z(saw.get_z() - distance)
 
-        if self.saws['right'].getZ() < self.z_start:
+        if self.saws['right'].get_z() < self.z_start:
             self.finish()
             self.state = State.WAIT
 
@@ -339,8 +339,8 @@ class Piles(EmbeddedPieces):
 
         for i, pile in enumerate(self.piles):
             pos = positions[i]
-            pile.setPos(pos)
-            pile.reparentTo(self)
+            pile.set_pos(pos)
+            pile.reparent_to(self)
             self.world.attach(pile.node())
 
         self.state = State.APPEAR
@@ -348,23 +348,23 @@ class Piles(EmbeddedPieces):
     def rotate(self, pile, angle):
         q = Quat()
         axis = Vec3.up()
-        q.setFromAxisAngle(angle, axis.normalized())
-        pile.setQuat(pile, q)
+        q.set_from_axis_angle(angle, axis.normalized())
+        pile.set_quat(pile, q)
 
     def appear(self, dt):
         distance = dt
         angle = dt * 1000
 
         for pile in self.piles:
-            pile.setZ(pile.getZ() + distance)
+            pile.set_z(pile.get_z() + distance)
             self.rotate(pile, angle)
 
         if self.piles[-1].getZ() > self.z_stop:
-            self.timer = globalClock.getFrameCount() + 30
+            self.timer = globalClock.get_frame_count() + 30
             self.state = State.STAY
 
     def stay(self):
-        if globalClock.getFrameCount() > self.timer:
+        if globalClock.get_frame_count() > self.timer:
             self.timer = 0
             self.state = State.DISAPPEAR
 
@@ -373,16 +373,16 @@ class Piles(EmbeddedPieces):
         angle = dt * 1000
 
         for pile in self.piles:
-            pile.setZ(pile.getZ() - distance)
+            pile.set_z(pile.get_z() - distance)
             self.rotate(pile, angle)
 
-        if self.piles[-1].getZ() < self.z_start:
+        if self.piles[-1].get_z() < self.z_start:
             self.finish()
             self.state = State.WAIT
 
     def finish(self):
         for pile in self.piles:
-            pile.detachNode()
+            pile.detach_node()
             self.world.remove(pile.node())
 
 
@@ -390,75 +390,75 @@ class Polyhedron(NodePath):
 
     def __init__(self, geom_node, name):
         super().__init__(BulletRigidBodyNode(name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
+        np = self.attach_new_node(geom_node)
+        np.set_two_sided(True)
         shape = BulletConvexHullShape()
-        shape.addGeom(geom_node.getGeom(0))
-        self.node().addShape(shape)
-        self.node().setMass(1)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
-        self.setScale(0.7)
+        shape.add_geom(geom_node.get_geom(0))
+        self.node().add_shape(shape)
+        self.node().set_mass(1)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
+        self.set_scale(0.7)
 
 
 class Sphere(NodePath):
 
     def __init__(self, geom_node, node_name, scale):
         super().__init__(BulletRigidBodyNode(node_name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
-        end, tip = np.getTightBounds()
+        np = self.attach_new_node(geom_node)
+        np.set_two_sided(True)
+        end, tip = np.get_tight_bounds()
         size = tip - end
-        self.node().addShape(BulletSphereShape(size.z / 2))
-        self.node().setMass(scale * 10)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
-        self.setScale(scale)
+        self.node().add_shape(BulletSphereShape(size.z / 2))
+        self.node().set_mass(scale * 10)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
+        self.set_scale(scale)
 
 
 class Pyramid(NodePath):
 
     def __init__(self, geom_node, node_name):
         super().__init__(BulletRigidBodyNode(node_name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
+        np = self.attach_new_node(geom_node)
+        np.set_two_sided(True)
         shape = BulletConvexHullShape()
-        shape.addGeom(geom_node.getGeom(0))
-        self.node().addShape(shape)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(2))
-        self.setColor(LIGHT_GRAY)
-        self.setScale(0.7)
-        self.setR(-90)
-        self.node().setKinematic(True)
+        shape.add_geom(geom_node.getGeom(0))
+        self.node().add_shape(shape)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(2))
+        self.set_color(LIGHT_GRAY)
+        self.set_scale(0.7)
+        self.set_r(-90)
+        self.node().set_kinematic(True)
 
 
 class SlimPrism(NodePath):
 
     def __init__(self, geom_node, node_name):
         super().__init__(BulletRigidBodyNode(node_name))
-        self.np = self.attachNewNode(geom_node)
-        self.np.setTwoSided(True)
+        self.np = self.attach_new_node(geom_node)
+        self.np.set_two_sided(True)
         shape = BulletConvexHullShape()
-        shape.addGeom(geom_node.getGeom(0))
-        self.node().addShape(shape)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(2))
-        self.setScale(0.5, 0.5, 0.3)
-        self.setHpr(90, 90, 0)
-        self.node().setKinematic(True)
+        shape.add_geom(geom_node.get_geom(0))
+        self.node().add_shape(shape)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(2))
+        self.set_scale(0.5, 0.5, 0.3)
+        self.set_hpr(90, 90, 0)
+        self.node().set_kinematic(True)
 
 
 class Octahedron(NodePath):
 
     def __init__(self, geom_node, node_name):
         super().__init__(BulletRigidBodyNode(node_name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
+        np = self.attach_new_node(geom_node)
+        np.set_two_sided(True)
         shape = BulletConvexHullShape()
-        shape.addGeom(geom_node.getGeom(0))
-        self.node().addShape(shape)
-        self.node().setRestitution(0.7)
-        self.setCollideMask(BitMask32.bit(2))
-        self.setScale(0.3, 0.3, 1.2)
-        self.node().setKinematic(True)
+        shape.add_geom(geom_node.get_geom(0))
+        self.node().add_shape(shape)
+        self.node().set_restitution(0.7)
+        self.set_collide_mask(BitMask32.bit(2))
+        self.set_scale(0.3, 0.3, 1.2)
+        self.node().set_kinematic(True)

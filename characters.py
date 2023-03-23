@@ -23,7 +23,7 @@ class Characters(NodePath):
         self.set_scale(0.3)
         self.set_h(90)
         self.set_collide_mask(BitMask32.allOn())
-        self.world.attachCharacter(self.node())
+        self.world.attach_character(self.node())
 
         self.climbing = True
         self.current_stair = 0
@@ -63,8 +63,8 @@ class Characters(NodePath):
         to_pos = Point3(from_pos.x, from_pos.y, -1)
         result = self.world.ray_test_closest(from_pos, to_pos, BitMask32.bit(4))
 
-        if result.hasHit():
-            self.current_stair = int(result.getHitPos().z)
+        if result.has_hit():
+            self.current_stair = int(result.get_hit_pos().z)
 
     def is_jump(self, stair):
         """Return True if the character is jumping onto the next stair.
@@ -96,7 +96,7 @@ class Characters(NodePath):
             if speed.y < 0:  # go forward
                 stair_np = self.stairs.get_child(self.current_stair)
                 result = self.world.contact_test_pair(self.node(), stair_np.node())
-                if result.getNumContacts() > 0:
+                if result.get_num_contacts() > 0:
                     self.do_jump()
                     speed.y = 0
 

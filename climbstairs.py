@@ -32,7 +32,7 @@ class Instructions(NodePath):
 
     def __init__(self):
         super().__init__(PandaNode('instructions'))
-        self.reparentTo(base.a2dTopLeft)
+        self.reparent_to(base.a2dTopLeft)
 
         self.make_instructions([
             '[ESC]: Quit',
@@ -62,27 +62,27 @@ class ClimbStairs(ShowBase):
     def __init__(self):
         super().__init__()
         self.disableMouse()
-        self.camera.setPos(Point3(-14.6, -15, 11))
-        self.camera.setHpr(Vec3(-41, -18, 0))
+        self.camera.set_pos(Point3(-14.6, -15, 11))
+        self.camera.set_hpr(Vec3(-41, -18, 0))
 
         self.world = BulletWorld()
-        self.world.setGravity(Vec3(0, 0, -9.81))
-        self.debug_np = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(self.debug_np.node())
+        self.world.set_gravity(Vec3(0, 0, -9.81))
+        self.debug_np = self.render.attach_new_node(BulletDebugNode('debug'))
+        self.world.set_debug_node(self.debug_np.node())
 
         self.scene = Scene(self.world)
-        self.scene.reparentTo(self.render)
+        self.scene.reparent_to(self.render)
 
         self.ambient_light = BasicAmbientLight()
         self.directional_light = BasicDayLight(parent=self.camera)
 
         self.climber = Characters(self.scene.stairs, self.world)
-        self.climber.reparentTo(self.render)
+        self.climber.reparent_to(self.render)
 
         self.popout_gimmicks = PopOutGimmiks(self.scene.stairs, self.world)
         self.drop_gimmicks = DropGimmicks(self.scene.stairs, self.world)
 
-        self.diff = self.camera.getX() - self.climber.getX()
+        self.diff = self.camera.get_x() - self.climber.get_x()
         self.timer = 0
         self.drop_sphere = True
         self.delete_delay_time = 3
@@ -90,17 +90,17 @@ class ClimbStairs(ShowBase):
         self.display = ScoreDisplay()
         self.instructions = Instructions()
 
-        inputState.watchWithModifiers('forward', 'arrow_up')
-        inputState.watchWithModifiers('backward', 'arrow_down')
-        inputState.watchWithModifiers('left', 'arrow_left')
-        inputState.watchWithModifiers('right', 'arrow_right')
+        inputState.watch_with_modifiers('forward', 'arrow_up')
+        inputState.watch_with_modifiers('backward', 'arrow_down')
+        inputState.watch_with_modifiers('left', 'arrow_left')
+        inputState.watch_with_modifiers('right', 'arrow_right')
 
         self.accept('d', self.toggle_debug)
         self.accept('escape', sys.exit)
         self.taskMgr.add(self.update, 'update')
 
     def toggle_debug(self):
-        if self.debug_np.isHidden():
+        if self.debug_np.is_hidden():
             self.debug_np.show()
         else:
             self.debug_np.hide()
@@ -108,37 +108,37 @@ class ClimbStairs(ShowBase):
     def control_climber(self, dt):
         speed = Vec3(0, 0, 0)
 
-        if inputState.isSet('left'):
-            speed.setX(2.0)
-        if inputState.isSet('right'):
-            speed.setX(-2.0)
-        if inputState.isSet('forward'):
-            speed.setY(-2.0)
-        if inputState.isSet('backward'):
-            speed.setY(2.0)
+        if inputState.is_set('left'):
+            speed.set_x(2.0)
+        if inputState.is_set('right'):
+            speed.set_x(-2.0)
+        if inputState.is_set('forward'):
+            speed.set_y(-2.0)
+        if inputState.is_set('backward'):
+            speed.set_y(2.0)
 
         self.climber.update(dt, speed)
 
     def move_camera(self):
         """Change camera x and z with the movement of a climber.
         """
-        if (dist := self.diff - (self.camera.getX() - self.climber.getX())) != 0:
-            pos = self.camera.getPos() + Vec3(dist, 0, dist)
-            self.camera.setPos(pos)
+        if (dist := self.diff - (self.camera.get_x() - self.climber.get_x())) != 0:
+            pos = self.camera.get_pos() + Vec3(dist, 0, dist)
+            self.camera.set_pos(pos)
 
     def clean_floor(self):
         """Remove polhs and spheres 3 seconds later
            than they collided with the floor.
         """
-        result = self.world.contactTest(self.scene.floor.node(), True)
+        result = self.world.contact_test(self.scene.floor.node(), True)
 
-        for con in result.getContacts():
-            if (node := con.getNode0()) != self.climber.node():
-                if not self.taskMgr.hasTaskNamed(node.getName()):
-                    self.taskMgr.doMethodLater(
+        for con in result.get_contacts():
+            if (node := con.get_node0()) != self.climber.node():
+                if not self.taskMgr.hasTaskNamed(node.get_name()):
+                    self.taskMgr.do_method_later(
                         self.delete_delay_time,
                         self.drop_gimmicks.delete,
-                        node.getName(),
+                        node.get_name(),
                         extraArgs=[node],
                         appendTask=True
                     )
@@ -151,7 +151,7 @@ class ClimbStairs(ShowBase):
         return 3
 
     def update(self, task):
-        dt = globalClock.getDt()
+        dt = globalClock.get_dt()
 
         # move climber and display score
         self.control_climber(dt)
@@ -174,7 +174,7 @@ class ClimbStairs(ShowBase):
         # remove polyhedrons and spheres on the floor.
         self.clean_floor()
 
-        self.world.doPhysics(dt)
+        self.world.do_physics(dt)
         return task.cont
 
 

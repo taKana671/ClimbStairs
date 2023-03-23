@@ -42,8 +42,8 @@ class Stairs(NodePath):
         pos = Point3(x, self.stair_y, z)
 
         stair = Rectangle(name, pos, scale, self.geom_node)
-        stair.reparentTo(self)
-        self.world.attachRigidBody(stair.node())
+        stair.reparent_to(self)
+        self.world.attach(stair.node())
 
     def center(self, n):
         if 0 <= n <= self.top_stair:
@@ -55,15 +55,15 @@ class Rectangle(NodePath):
 
     def __init__(self, name, pos, scale, geom_node):
         super().__init__(BulletRigidBodyNode(name))
-        np = self.attachNewNode(geom_node)
-        np.setTwoSided(True)
-        np.reparentTo(self)
-        end, tip = np.getTightBounds()
+        np = self.attach_new_node(geom_node)
+        np.set_two_sided(True)
+        np.reparent_to(self)
+        end, tip = np.get_tight_bounds()
         self.node().addShape(BulletBoxShape((tip - end) / 2))
-        self.node().setRestitution(1)
-        self.setCollideMask(BitMask32.bit(1) | BitMask32.bit(4))
-        self.setScale(scale)
-        self.setPos(pos)
+        self.node().set_restitution(1)
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(4))
+        self.set_scale(scale)
+        self.set_pos(pos)
 
 
 class Floor(NodePath):
@@ -72,24 +72,24 @@ class Floor(NodePath):
         super().__init__(BulletRigidBodyNode('floor'))
         model = self.create_floor(start, end)
         model.reparentTo(self)
-        self.setCollideMask(BitMask32.bit(3) | BitMask32.bit(4))
-        self.node().setRestitution(1)
-        self.node().addShape(BulletPlaneShape(Vec3.up(), 0))
+        self.set_collide_mask(BitMask32.bit(3) | BitMask32.bit(4))
+        self.node().set_restitution(1)
+        self.node().add_shape(BulletPlaneShape(Vec3.up(), 0))
 
     def create_floor(self, start, end):
         model = NodePath(PandaNode('floorModel'))
         card = CardMaker('card')
-        card.setFrame(-1, 1, -1, 1)
+        card.set_frame(-1, 1, -1, 1)
 
         for y in range(start + 1, end + 1, 2):
             for x in range(start - 3, end + 3, 2):
-                g = model.attachNewNode(card.generate())
-                g.setP(-90)
-                g.setPos(Point3(x, y, 0))
+                g = model.attach_new_node(card.generate())
+                g.set_p(-90)
+                g.set_pos(Point3(x, y, 0))
 
-        model.setColor(AMETHYST)
-        model.flattenStrong()
-        model.setPos(Point3(0, 0, 0))
+        model.set_color(AMETHYST)
+        model.flatten_strong()
+        model.set_pos(Point3(0, 0, 0))
         return model
 
 
@@ -97,10 +97,10 @@ class Wall(NodePath):
 
     def __init__(self, name, normal, y):
         super().__init__(BulletRigidBodyNode(name))
-        self.setCollideMask(BitMask32.bit(1))
-        self.node().addShape(BulletPlaneShape(normal, 0))
-        self.node().setRestitution(1)
-        self.setY(y)
+        self.set_collide_mask(BitMask32.bit(1))
+        self.node().add_shape(BulletPlaneShape(normal, 0))
+        self.node().set_restitution(1)
+        self.set_y(y)
 
 
 class Scene(NodePath):
@@ -113,16 +113,16 @@ class Scene(NodePath):
 
     def make_scene(self, world):
         self.stairs = Stairs(world)
-        self.stairs.reparentTo(self)
+        self.stairs.reparent_to(self)
 
         self.floor = Floor(self.stairs.right_end, self.stairs.left_end)
-        self.floor.reparentTo(self)
-        world.attachRigidBody(self.floor.node())
+        self.floor.reparent_to(self)
+        world.attach(self.floor.node())
 
         self.left_wall = Wall('wall_left', Vec3.back(), self.stairs.left_end)
-        self.left_wall.reparentTo(self)
-        world.attachRigidBody(self.left_wall.node())
+        self.left_wall.reparent_to(self)
+        world.attach(self.left_wall.node())
 
         self.right_wall = Wall('wall_right', Vec3.forward(), self.stairs.right_end)
-        self.right_wall.reparentTo(self)
-        world.attachRigidBody(self.right_wall.node())
+        self.right_wall.reparent_to(self)
+        world.attach(self.right_wall.node())
