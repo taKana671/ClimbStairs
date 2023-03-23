@@ -3,7 +3,7 @@
 * Made with Python and Panda3D.
 * All of the stairs and obstacles are made by using Geom objects. 
 
-![demo](https://user-images.githubusercontent.com/48859041/226908089-e9a5e50d-055e-45ca-8751-7f17f15c6f1d.png)
+![demo2](https://user-images.githubusercontent.com/48859041/227254351-d3a7d2f0-26e8-4012-86ae-6df665eac8cc.png)
 
 # Requirements
 * Panda3D 1.10.11
@@ -20,8 +20,7 @@
 
 # Controls:
 * Press [Esc] to quit.
-* Press [enter] + [up arrow] keys to go up.
+* Press [up arrow] keys to go up.
 * Press [left arrow] key to go to the left.
 * Press [right arrow] key to go to the right.
 * Press [down arrow] key to go back.
-* Press [enter] key to jump.
