@@ -7,15 +7,6 @@ from panda3d.core import Vec3, LColor
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 from panda3d.core import Geom, GeomNode, GeomTriangles
 
-#**************************************
-from panda3d.core import NodePath, BitMask32
-from direct.showbase.ShowBase import ShowBase
-from direct.showbase.ShowBaseGlobal import globalClock
-from panda3d.bullet import BulletConvexHullShape
-from panda3d.bullet import BulletRigidBodyNode
-from panda3d.bullet import BulletWorld, BulletDebugNode
-#*************************************
-
 from polyhedrons_data import POLYHEDRONS
 
 
@@ -386,78 +377,3 @@ class TorusGeomMaker(GeomMaker):
         node.add_geom(geom)
 
         return node
-
-
-
-
-class PolhModel(NodePath):
-
-    def __init__(self, geomnode):
-        super().__init__(geomnode)
-        self.setTwoSided(True)
-
-
-class TestShape(NodePath):
-
-    def __init__(self):
-        super().__init__(BulletRigidBodyNode('testShape'))
-        self.reparentTo(base.render)
-        # maker = SphereGeomMaker()
-        # node = maker.make_geomnode()
-
-        # maker = PyramidGeomMaker()
-        # node = maker.make_geomnode()
-
-        # creater = PolyhedronGeomMaker()
-        # node = creater.make_geomnode('icosidodecahedron')
-        # obj = self.attachNewNode(node)
-        # obj.setTwoSided(True)
-
-        # node = creater.make_geomnode('cube')
-        # cube = NodePath(node)
-        # cube.setTwoSided(True)
-        # model = cube.copyTo(self)
-
-        maker = TorusGeomMaker()
-        node = maker.make_geomnode()
-        obj = self.attachNewNode(node)
-        obj.setTwoSided(True)
-
-        # obj.reparentTo(self) <= いらない
-        shape = BulletConvexHullShape()
-        shape.addGeom(node.getGeom(0))
-        self.node().addShape(shape)
-        self.setCollideMask(BitMask32(1))
-        self.setScale(0.3)
-        self.setColor(Colors.RED.value)
-
-
-class Test(ShowBase):
-
-    def __init__(self):
-        super().__init__()
-        self.disableMouse()
-        self.camera.setPos(10, 10, 10)  # 20, -20, 5
-        self.camera.lookAt(0, 0, 0)
-        self.world = BulletWorld()
-
-        # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
-        # *******************************************
-
-        shape = TestShape()
-        self.world.attachRigidBody(shape.node())
-        # shape.hprInterval(8, (360, 720, 360)).loop()
-        self.taskMgr.add(self.update, 'update')
-
-    def update(self, task):
-        dt = globalClock.getDt()
-        self.world.doPhysics(dt)
-        return task.cont
-
-
-if __name__ == '__main__':
-    test = Test()
-    test.run()
