@@ -9,7 +9,7 @@ from direct.gui.OnscreenText import OnscreenText
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.InputStateGlobal import inputState
 
-from characters import SnowMan
+from characters import Characters
 from gimmicks import DropGimmicks, PopOutGimmiks
 from lights import BasicAmbientLight, BasicDayLight
 from scene import Scene
@@ -36,8 +36,7 @@ class Instructions(NodePath):
 
         self.make_instructions([
             '[ESC]: Quit',
-            '[Enter]: Jump',
-            '[Enter] + [Up Arrow]: Go up',
+            '[Up Arrow]: Go up',
             '[Left Arrow]: Go to the left',
             '[Right Arrow]: Go to the right',
             '[Down Arrow]: Go to the back'
@@ -77,7 +76,7 @@ class ClimbStairs(ShowBase):
         self.ambient_light = BasicAmbientLight()
         self.directional_light = BasicDayLight(parent=self.camera)
 
-        self.climber = SnowMan(Point3(-1.0, 0.0, 0.0), self.world)
+        self.climber = Characters(self.scene.stairs, self.world)
         self.climber.reparentTo(self.render)
 
         self.popout_gimmicks = PopOutGimmiks(self.scene.stairs, self.world)
@@ -95,7 +94,6 @@ class ClimbStairs(ShowBase):
         inputState.watchWithModifiers('backward', 'arrow_down')
         inputState.watchWithModifiers('left', 'arrow_left')
         inputState.watchWithModifiers('right', 'arrow_right')
-        inputState.watchWithModifiers('jump', 'enter')
 
         self.accept('d', self.toggle_debug)
         self.accept('escape', sys.exit)
@@ -109,9 +107,6 @@ class ClimbStairs(ShowBase):
 
     def control_climber(self, dt):
         speed = Vec3(0, 0, 0)
-
-        if inputState.isSet('jump'):
-            self.climber.do_jump()
 
         if inputState.isSet('left'):
             speed.setX(2.0)
@@ -149,9 +144,9 @@ class ClimbStairs(ShowBase):
                     )
 
     def decide_interval(self):
-        if self.climber.stair >= 40:
+        if self.climber.current_stair >= 40:
             return 1
-        elif self.climber.stair >= 20:
+        elif self.climber.current_stair >= 20:
             return 2
         return 3
 
@@ -161,10 +156,10 @@ class ClimbStairs(ShowBase):
         # move climber and display score
         self.control_climber(dt)
         self.move_camera()
-        self.display.setText(str(self.climber.stair))
+        self.display.setText(str(self.climber.current_stair))
 
         # increase stair
-        if self.scene.stairs.top_stair - self.climber.stair < 14:
+        if self.scene.stairs.top_stair - self.climber.current_stair < 14:
             self.scene.stairs.increase()
 
         # control gimmicks

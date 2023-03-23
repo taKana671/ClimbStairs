@@ -19,7 +19,7 @@ class BasicDayLight(NodePath):
         self.node().getLens().setFilmSize(100, 100)
         self.node().getLens().setNearFar(1, 100)
         self.node().setColor((1, 1, 1, 1))
-        self.setPosHpr(Point3(0, 0, 30), Vec3(-30, -60, 0))
+        self.setPosHpr(Point3(0, 0, 30), Vec3(-30, -45, 0))
         self.node().setShadowCaster(True, 8192, 8192)
 
         state = self.node().getInitialState()

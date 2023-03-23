@@ -39,7 +39,7 @@ class DropGimmicks(GimmickRoot):
                 climer: Characters class instance
                 drop_sphere: bool
         """
-        drop_stair = climber.stair + 11
+        drop_stair = climber.current_stair + 11
         stair_center = self.stairs.center(drop_stair)
         pos = Point3(stair_center.x, climber.getY(), stair_center.z + 3)
 
@@ -161,7 +161,7 @@ class EmbeddedPieces(NodePath):
                 self.disappear(dt)
             case State.WAIT:
                 if climber.climbing:
-                    self.decide_stair(climber.stair, *trick_stairs)
+                    self.decide_stair(climber.current_stair, *trick_stairs)
 
 
 class Cones(EmbeddedPieces):
