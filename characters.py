@@ -99,7 +99,8 @@ class Characters(NodePath):
                 stair_np = self.stairs.get_child(self.current_stair)
                 result = self.world.contact_test_pair(self.node(), stair_np.node())
                 if result.get_num_contacts() > 0:
-                    self.do_jump()
+                    if self.node().is_on_ground():
+                        self.do_jump()
                     speed.y = 0
 
             self.node().set_linear_movement(speed, True)

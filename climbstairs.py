@@ -174,7 +174,6 @@ class ClimbStairs(ShowBase):
         if task.time > self.timer:
             self.drop_gimmicks.drop(self.climber, self.next_drop)
             self.next_drop = n if (n := self.next_drop + 1) < self.drop_gimmicks_num else 0
-            print(self.next_drop)
             interval = self.decide_interval()
             self.timer = task.time + interval
 
