@@ -24,3 +24,6 @@
 * Press [left arrow] key to go to the left.
 * Press [right arrow] key to go to the right.
 * Press [down arrow] key to go back.
+
+* Press [d] key to show/hide debug.
+* Press [i] key to show/hide instructions.
