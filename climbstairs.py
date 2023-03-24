@@ -81,6 +81,7 @@ class ClimbStairs(ShowBase):
 
         self.popout_gimmicks = PopOutGimmiks(self.scene.stairs, self.world)
         self.drop_gimmicks = DropGimmicks(self.scene.stairs, self.world)
+        self.drop_gimmicks_num = sum(1 if key.endswith('maker') else 0 for key in self.drop_gimmicks.__dict__.keys())
 
         self.diff = self.camera.get_x() - self.climber.get_x()
         self.timer = 0
@@ -96,6 +97,7 @@ class ClimbStairs(ShowBase):
         inputState.watch_with_modifiers('right', 'arrow_right')
 
         self.accept('d', self.toggle_debug)
+        self.accept('i', self.toggle_instructions)
         self.accept('escape', sys.exit)
         self.taskMgr.add(self.update, 'update')
 
@@ -104,6 +106,12 @@ class ClimbStairs(ShowBase):
             self.debug_np.show()
         else:
             self.debug_np.hide()
+
+    def toggle_instructions(self):
+        if self.instructions.is_hidden():
+            self.instructions.show()
+        else:
+            self.instructions.hide()
 
     def control_climber(self, dt):
         speed = Vec3(0, 0, 0)
@@ -153,7 +161,7 @@ class ClimbStairs(ShowBase):
     def update(self, task):
         dt = globalClock.get_dt()
 
-        # move climber and display score
+        # move climber, and display score
         self.control_climber(dt)
         self.move_camera()
         self.display.setText(str(self.climber.current_stair))
@@ -165,7 +173,8 @@ class ClimbStairs(ShowBase):
         # control gimmicks
         if task.time > self.timer:
             self.drop_gimmicks.drop(self.climber, self.next_drop)
-            self.next_drop = n if (n := self.next_drop + 1) < 3 else 0
+            self.next_drop = n if (n := self.next_drop + 1) < self.drop_gimmicks_num else 0
+            print(self.next_drop)
             interval = self.decide_interval()
             self.timer = task.time + interval
 
