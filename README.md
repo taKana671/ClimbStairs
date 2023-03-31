@@ -10,7 +10,7 @@
 
 # Environment
 * Python 3.11
-* Windows10
+* Windows11
 
 # Usage
 * Execute a command below on your command line.
